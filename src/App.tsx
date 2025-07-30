@@ -11,16 +11,17 @@ import { ChildDashboard } from '@/pages/dashboard/ChildDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { TasksPage } from '@/pages/tasks/TasksPage';
 import { RewardsPage } from '@/pages/rewards/RewardsPage';
+import { SidebarProvider } from '@/contexts/SidebarContext';
 
 // Dashboard router component
 function DashboardRouter() {
   const { userProfile } = useAuth();
-  
+
   // Show appropriate dashboard based on user role
   if (userProfile?.role === 'child') {
     return <ChildDashboard />;
   }
-  
+
   return <ParentDashboard />;
 }
 
@@ -28,45 +29,47 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          
-          {/* Onboarding route */}
-          <Route
-            path="/onboarding"
-            element={
-              <ProtectedRoute requiresOnboarding={false}>
-                <OnboardingPage />
-              </ProtectedRoute>
-            }
-          />
+        <SidebarProvider>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          {/* task routes*/}
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/rewards" element={<RewardsPage />} />
+            {/* Onboarding route */}
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute requiresOnboarding={false}>
+                  <OnboardingPage />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Protected app routes */}
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Routes>
-                    <Route path="/" element={<DashboardRouter />} />
-                    <Route path="/tasks" element={<div>Tasks Page - Coming Soon</div>} />
-                    <Route path="/rewards" element={<div>Rewards Page - Coming Soon</div>} />
-                    <Route path="/notifications" element={<div>Notifications - Coming Soon</div>} />
-                    <Route path="/settings" element={<div>Settings - Coming Soon</div>} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+            {/* task routes*/}
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/rewards" element={<RewardsPage />} />
+
+            {/* Protected app routes */}
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Routes>
+                      <Route path="/" element={<DashboardRouter />} />
+                      <Route path="/tasks" element={<div>Tasks Page - Coming Soon</div>} />
+                      <Route path="/rewards" element={<div>Rewards Page - Coming Soon</div>} />
+                      <Route path="/notifications" element={<div>Notifications - Coming Soon</div>} />
+                      <Route path="/settings" element={<div>Settings - Coming Soon</div>} />
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </SidebarProvider>
       </AuthProvider>
     </Router>
   );

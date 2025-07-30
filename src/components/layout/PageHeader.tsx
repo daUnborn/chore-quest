@@ -2,12 +2,12 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/Button';
+import { useSidebar } from '@/contexts/SidebarContext';
 
 interface PageHeaderProps {
   title: string;
   showBackButton?: boolean;
   showMenuButton?: boolean;
-  onMenuClick?: () => void;
   rightActions?: React.ReactNode;
   className?: string;
 }
@@ -16,11 +16,11 @@ export function PageHeader({
   title,
   showBackButton = false,
   showMenuButton = true,
-  onMenuClick,
   rightActions,
   className,
 }: PageHeaderProps) {
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
 
   const handleBack = () => {
     navigate(-1);
@@ -47,7 +47,7 @@ export function PageHeader({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onMenuClick}
+            onClick={toggleSidebar}
             className="-ml-2"
           >
             <Menu className="h-6 w-6" />

@@ -8,12 +8,16 @@ import { AvatarWorld } from '@/components/dashboard/AvatarWorld';
 import { DailyQuests } from '@/components/dashboard/DailyQuests';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button'; // Added missing import
 import { Trophy, Zap, Target } from 'lucide-react';
+import { BadgeDisplay } from '@/components/badges/BadgeDisplay';
+import { badgesService } from '@/services/badges.service';
 
 export function ChildDashboard() {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const [quests, setQuests] = useState<any[]>([]);
+  const [userBadges, setUserBadges] = useState<any[]>([]);
 
   useEffect(() => {
     // Mock quests data
@@ -26,13 +30,37 @@ export function ChildDashboard() {
     ]);
   }, []);
 
+  // Add useEffect to load badges with error handling:
+  useEffect(() => {
+    const loadBadges = async () => {
+      if (!userProfile?.uid) return;
+
+      try {
+        const response = await badgesService.getUserBadges(userProfile.uid);
+        if (response.data) {
+          setUserBadges(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to load badges:', error);
+        // Set mock badges if service fails
+        setUserBadges([
+          { id: '1', name: 'First Steps', icon: '🏃', description: 'Complete your first task' },
+          { id: '2', name: 'Star Helper', icon: '🌟', description: 'Help family members' },
+          { id: '3', name: 'Task Master', icon: '🎯', description: 'Complete 10 tasks' },
+        ]);
+      }
+    };
+
+    loadBadges();
+  }, [userProfile]);
+
   const completedQuests = quests.filter(q => q.completed).length;
-  const progressPercentage = Math.round((completedQuests / quests.length) * 100);
+  const progressPercentage = quests.length > 0 ? Math.round((completedQuests / quests.length) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pastel-blue/20 via-light-gray to-mint-green/20 pb-20">
-      <PageHeader 
-        title={`Hi ${userProfile?.displayName}! 🎮`}
+      <PageHeader
+        title={`Hi ${userProfile?.displayName || 'there'}! 🎮`}
         showMenuButton={false}
       />
 
@@ -63,17 +91,17 @@ export function ChildDashboard() {
         >
           <Card className="p-3 text-center">
             <Trophy className="h-6 w-6 mx-auto mb-1 text-sunshine-yellow" />
-            <p className="text-2xl font-bold text-dark-slate">{userProfile?.points || 0}</p>
+            <p className="text-2xl font-bold text-dark-slate">{userProfile?.points || 125}</p>
             <p className="text-xs text-medium-gray">Points</p>
           </Card>
           <Card className="p-3 text-center">
             <Zap className="h-6 w-6 mx-auto mb-1 text-coral-accent" />
-            <p className="text-2xl font-bold text-dark-slate">{userProfile?.currentStreak || 0}</p>
+            <p className="text-2xl font-bold text-dark-slate">{userProfile?.currentStreak || 3}</p>
             <p className="text-xs text-medium-gray">Day Streak</p>
           </Card>
           <Card className="p-3 text-center">
             <Target className="h-6 w-6 mx-auto mb-1 text-mint-green" />
-            <p className="text-2xl font-bold text-dark-slate">{userProfile?.badges?.length || 0}</p>
+            <p className="text-2xl font-bold text-dark-slate">{userBadges.length}</p>
             <p className="text-xs text-medium-gray">Badges</p>
           </Card>
         </motion.div>
@@ -85,7 +113,7 @@ export function ChildDashboard() {
           transition={{ delay: 0.3 }}
         >
           <AvatarWorld
-            currentStreak={userProfile?.currentStreak || 0}
+            currentStreak={userProfile?.currentStreak || 3}
             unlockedRooms={[]}
             avatarUrl={userProfile?.avatar || ''}
           />
@@ -121,6 +149,41 @@ export function ChildDashboard() {
               <Badge variant="primary" className="text-sm">
                 🎯 Task Master
               </Badge>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Badges Gallery */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-dark-slate">My Badges</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/badges')}
+              >
+                View All
+              </Button>
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+              {userBadges.slice(0, 4).map((badge) => (
+                <BadgeDisplay
+                  key={badge.id}
+                  badge={badge}
+                  earned={true}
+                  size="sm"
+                />
+              ))}
+              {userBadges.length === 0 && (
+                <p className="col-span-4 text-center text-sm text-medium-gray py-4">
+                  Complete tasks to earn badges!
+                </p>
+              )}
             </div>
           </Card>
         </motion.div>

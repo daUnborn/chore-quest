@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  CheckCircle, 
-  Users, 
-  Trophy, 
+import {
+  CheckCircle,
+  Users,
+  Trophy,
   TrendingUp,
   Plus,
   Calendar,
@@ -19,11 +19,17 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { FAB } from '@/components/layout/FAB';
+import { CreateTaskModal } from '@/components/tasks/CreateTaskModal';
+import { CreateRewardModal } from '@/components/rewards/CreateRewardModal';
+
 
 export function ParentDashboard() {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const [weekDays, setWeekDays] = useState<any[]>([]);
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [showCreateRewardModal, setShowCreateRewardModal] = useState(false);
+
 
   useEffect(() => {
     // Generate week days
@@ -73,7 +79,7 @@ export function ParentDashboard() {
 
   return (
     <div className="min-h-screen bg-light-gray pb-20">
-      <PageHeader 
+      <PageHeader
         title={`Welcome back, ${userProfile?.displayName}!`}
         showMenuButton={false}
       />
@@ -99,7 +105,7 @@ export function ParentDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <WeeklyCalendar 
+          <WeeklyCalendar
             days={weekDays}
             onDayClick={(date) => console.log('Day clicked:', date)}
           />
@@ -117,7 +123,7 @@ export function ParentDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/tasks/new')}
+                onClick={() => setShowCreateTaskModal(true)}
                 className="flex flex-col items-center gap-2 h-auto py-3"
               >
                 <Plus className="h-5 w-5" />
@@ -126,7 +132,7 @@ export function ParentDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/rewards/new')}
+                onClick={() => setShowCreateRewardModal(true)}
                 className="flex flex-col items-center gap-2 h-auto py-3"
               >
                 <Gift className="h-5 w-5" />
@@ -166,7 +172,7 @@ export function ParentDashboard() {
                 </div>
                 <Badge variant="success" size="sm">+5 pts</Badge>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-sunshine-yellow flex items-center justify-center">
@@ -184,7 +190,29 @@ export function ParentDashboard() {
         </motion.div>
       </div>
 
-      <FAB onClick={() => navigate('/tasks/new')} />
+      <FAB onClick={() => navigate('/tasks')} />
+
+      {/* Create Task Modal */}
+      <CreateTaskModal
+        isOpen={showCreateTaskModal}
+        onClose={() => setShowCreateTaskModal(false)}
+        onSubmit={async (taskData) => {
+          // TODO: Implement task creation
+          console.log('Create task:', taskData);
+          setShowCreateTaskModal(false);
+        }}
+      />
+
+      {/* Create Reward Modal */}
+      <CreateRewardModal
+        isOpen={showCreateRewardModal}
+        onClose={() => setShowCreateRewardModal(false)}
+        onSubmit={async (rewardData) => {
+          // TODO: Implement reward creation
+          console.log('Create reward:', rewardData);
+          setShowCreateRewardModal(false);
+        }}
+      />
     </div>
   );
 }

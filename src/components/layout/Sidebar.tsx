@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Home, ClipboardList, Gift, Bell, Settings, X } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ const navItems = [
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { userProfile } = useAuth();
+  
   return (
     <>
       {/* Mobile overlay */}
@@ -34,14 +37,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <motion.aside
-        initial={{ x: '-100%' }}
-        animate={{ x: isOpen ? 0 : '-100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      <aside
         className={cn(
-          'fixed left-0 top-0 z-50 h-full w-64 bg-white shadow-lg lg:z-30',
-          'lg:translate-x-0 lg:shadow-md',
-          !isOpen && 'lg:hidden'
+          'fixed left-0 top-0 z-50 h-full w-64 bg-white shadow-lg',
+          'lg:z-30', // Lower z-index on desktop
+          'transition-transform duration-300 ease-in-out',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
+          'lg:translate-x-0' // Always visible on desktop
         )}
       >
         <div className="flex h-full flex-col">
@@ -81,15 +83,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Footer */}
           <div className="border-t border-light-gray p-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-sunshine-yellow" />
+              <div className="h-10 w-10 rounded-full bg-sunshine-yellow flex items-center justify-center text-white font-bold">
+                {userProfile?.displayName?.[0]?.toUpperCase() || 'U'}
+              </div>
               <div>
-                <p className="text-sm font-medium text-dark-slate">John Doe</p>
-                <p className="text-xs text-medium-gray">Parent Account</p>
+                <p className="text-sm font-medium text-dark-slate">
+                  {userProfile?.displayName || 'User'}
+                </p>
+                <p className="text-xs text-medium-gray capitalize">
+                  {userProfile?.role || 'Member'} Account
+                </p>
               </div>
             </div>
           </div>
         </div>
-      </motion.aside>
+      </aside>
     </>
   );
 }
