@@ -18,38 +18,37 @@ interface HouseholdSetupProps {
 
 export function HouseholdSetup({ onNext }: HouseholdSetupProps) {
   const { data, updateData } = useOnboarding();
-  const { currentUser, updateUserProfile } = useAuth();
-  const [mode, setMode] = useState<'choice' | 'create' | 'join'>('choice');
+  const { currentUser, updateUserProfile, refreshUserProfile } = useAuth();
+  const [mode, setMode] = useState<'choice' | 'create' | 'join'>('create');
   const [householdName, setHouseholdName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleCreateHousehold = async () => {
+const handleCreateHousehold = async () => {
     if (!currentUser || !householdName.trim()) return;
 
     setIsLoading(true);
     setError('');
 
     try {
+      console.log('Creating household for user:', currentUser.uid);
+      
       // Create the household
       const { householdId, code } = await createHousehold(
         householdName,
         currentUser.uid
       );
+      console.log('Household created:', householdId);
 
-      // Update user profile with role
-      await updateUserProfile({
-        role: data.role || 'parent'
-      });
-
-      // Add user to household
+      // Add user to household (this will create/update user doc)
       await addUserToHousehold(
         currentUser.uid,
         householdId,
         householdName,
         'admin'
       );
+      console.log('User added to household');
 
       // Update onboarding data
       updateData({
@@ -58,9 +57,12 @@ export function HouseholdSetup({ onNext }: HouseholdSetupProps) {
         householdName
       });
 
-      // Force auth context to refresh user profile
-      window.location.reload(); // Temporary solution to force refresh
+      // Refresh user profile to get updated household data
+      //await refreshUserProfile();
+      //console.log('Profile refreshed');
 
+      // Navigate to next step
+      onNext();
     } catch (err) {
       console.error('Error creating household:', err);
       setError('Failed to create household. Please try again.');
@@ -103,8 +105,11 @@ export function HouseholdSetup({ onNext }: HouseholdSetupProps) {
         householdName: result.household.name
       });
 
-      // Force auth context to refresh user profile
-      window.location.reload(); // Temporary solution to force refresh
+      // Refresh user profile to get updated household data
+      await refreshUserProfile();
+
+      // Navigate to next step
+      onNext();
 
     } catch (err) {
       console.error('Error joining household:', err);
@@ -156,6 +161,16 @@ export function HouseholdSetup({ onNext }: HouseholdSetupProps) {
               <p className="text-sm text-medium-gray">Enter a family code</p>
             </Card>
           </motion.div>
+        </div>
+
+        <div className="text-center">
+          <Button
+            variant="ghost"
+            onClick={() => setMode('join')}
+            className="text-white hover:bg-white/10"
+          >
+            Already have a family code? Join instead
+          </Button>
         </div>
       </div>
     );

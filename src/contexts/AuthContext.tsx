@@ -87,6 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             badges: [],
             completedTasks: 0,
             joinedHouseholds: [],
+            childProfiles: [],
+            //activeProfile: undefined, // Will be set when user selects profile
             ...additionalData,
         };
 
@@ -95,12 +97,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Login with email and password
+    // Login with email and password
     const login = async (email: string, password: string) => {
         try {
             setError(null);
+            console.log('Attempting login with:', { email }); // Debug log
             const { user } = await signInWithEmailAndPassword(auth, email, password);
+            console.log('Login successful:', user.uid); // Debug log
             await fetchUserProfile(user.uid);
         } catch (err: any) {
+            console.error('Login error:', err); // Better error logging
             setError(getAuthErrorMessage(err.code));
             throw err;
         }
@@ -110,14 +116,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const register = async (email: string, password: string, displayName: string) => {
         try {
             setError(null);
+            console.log('Creating account for:', email);
+
             const { user } = await createUserWithEmailAndPassword(auth, email, password);
+            console.log('Account created, updating profile...');
 
             // Update display name
             await updateProfile(user, { displayName });
+            console.log('Display name updated, creating user profile...');
 
             // Create user profile
             await createUserProfile(user, { displayName });
+            console.log('User profile created successfully');
+
         } catch (err: any) {
+            console.error('Registration error:', err);
+
+            // If account was created but profile creation failed, still proceed
+            if (err.code === 'permission-denied' || err.message?.includes('profile')) {
+                console.log('Account created but profile creation had issues - this is okay');
+                return; // Don't throw error if account exists
+            }
+
             setError(getAuthErrorMessage(err.code));
             throw err;
         }
@@ -170,10 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!currentUser || !userProfile) return;
 
         try {
+            console.log('Updating user profile with:', data);
             const userRef = doc(db, COLLECTIONS.USERS, currentUser.uid);
             await setDoc(userRef, { ...userProfile, ...data }, { merge: true });
             setUserProfile({ ...userProfile, ...data });
+            console.log('Profile updated successfully');
         } catch (err) {
+            console.error('Failed to update profile:', err);
             setError('Failed to update profile');
             throw err;
         }

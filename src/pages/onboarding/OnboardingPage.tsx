@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
-import { RoleSelection } from './steps/RoleSelection';
 import { HouseholdSetup } from './steps/HouseholdSetup';
 import { OnboardingComplete } from './steps/OnboardingComplete';
 import { useAuth } from '@/contexts/AuthContext';
 
-const steps = [RoleSelection, HouseholdSetup, OnboardingComplete];
+const steps = [HouseholdSetup, OnboardingComplete];
 
 export function OnboardingPage() {
   const navigate = useNavigate();

@@ -25,10 +25,10 @@ export function OnboardingComplete({ onNext }: OnboardingCompleteProps) {
   };
 
   useEffect(() => {
-    // Auto-redirect after 5 seconds
+    // Auto-redirect after 3 seconds
     const timer = setTimeout(() => {
-      navigate('/');
-    }, 5000);
+      navigate('/dashboard');
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, [navigate]);
@@ -79,11 +79,11 @@ export function OnboardingComplete({ onNext }: OnboardingCompleteProps) {
           <Button
             fullWidth
             size="lg"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
           >
-            Go to Dashboard
+            Continue to Dashboard
           </Button>
-          
+
           <p className="text-xs text-medium-gray">
             Redirecting automatically in a few seconds...
           </p>

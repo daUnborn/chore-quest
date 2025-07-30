@@ -84,10 +84,10 @@ export const joinHouseholdByCode = async (
     return null;
   }
 
-  const doc = snapshot.docs[0];
-  const household = doc.data() as Household;
+  const docSnap = snapshot.docs[0];
+  const household = docSnap.data() as Household;
 
-  return { householdId: doc.id, household };
+  return { householdId: docSnap.id, household };
 };
 
 // Add user to household
@@ -102,21 +102,35 @@ export const addUserToHousehold = async (
   
   // Get current user data
   const userDoc = await getDoc(userRef);
-  const userData = userDoc.data();
   
-  // Update with proper structure
-  await updateDoc(userRef, {
-    householdIds: arrayUnion(householdId),
-    joinedHouseholds: [
-      ...(userData?.joinedHouseholds || []),
-      {
+  if (!userDoc.exists()) {
+    // Create user document if it doesn't exist
+    await setDoc(userRef, {
+      householdIds: [householdId],
+      joinedHouseholds: [{
         householdId,
         householdName,
         joinedAt: new Date(),
         role,
-      }
-    ]
-  });
+      }]
+    }, { merge: true });
+  } else {
+    const userData = userDoc.data();
+    
+    // Update existing document
+    await updateDoc(userRef, {
+      householdIds: arrayUnion(householdId),
+      joinedHouseholds: [
+        ...(userData?.joinedHouseholds || []),
+        {
+          householdId,
+          householdName,
+          joinedAt: new Date(),
+          role,
+        }
+      ]
+    });
+  }
 
   // Update household member count
   const householdRef = doc(db, COLLECTIONS.HOUSEHOLDS, householdId);

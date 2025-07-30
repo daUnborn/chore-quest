@@ -10,6 +10,20 @@ export interface User {
   isActive: boolean;
 }
 
+export interface ChildProfile {
+  id: string;
+  name: string;
+  age: number;
+  avatar: string;
+  pinEnabled: boolean;
+  pin?: string;
+  points: number;
+  currentStreak: number;
+  longestStreak: number;
+  badges: string[];
+  completedTasks: number;
+}
+
 export interface UserProfile extends User {
   age?: number; // For children
   points: number;
@@ -18,6 +32,8 @@ export interface UserProfile extends User {
   badges: string[];
   completedTasks: number;
   joinedHouseholds: HouseholdMembership[];
+  childProfiles?: ChildProfile[]; // For parent accounts
+  activeProfile?: string; // 'parent' or child profile ID
 }
 
 // Household types

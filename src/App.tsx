@@ -5,6 +5,7 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage';
 import { OnboardingPage } from '@/pages/onboarding/OnboardingPage';
+import { ProfileSelectionPage } from '@/pages/ProfileSelectionPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ParentDashboard } from '@/pages/dashboard/ParentDashboard';
 import { ChildDashboard } from '@/pages/dashboard/ChildDashboard';
@@ -13,16 +14,34 @@ import { TasksPage } from '@/pages/tasks/TasksPage';
 import { RewardsPage } from '@/pages/rewards/RewardsPage';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 
-// Dashboard router component
+// Dashboard router component - always show parent dashboard
 function DashboardRouter() {
-  const { userProfile } = useAuth();
+  return <ParentDashboard />;
+}
 
-  // Show appropriate dashboard based on user role
-  if (userProfile?.role === 'child') {
-    return <ChildDashboard />;
+// Main router to determine user flow
+function MainRouter() {
+  const { userProfile, loading, currentUser } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pastel-blue"></div>
+      </div>
+    );
   }
 
-  return <ParentDashboard />;
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If no household, redirect to onboarding
+  if (!userProfile?.householdIds?.length) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // If household exists, go directly to dashboard
+  return <Navigate to="/dashboard" replace />;
 }
 
 function App() {
@@ -46,28 +65,84 @@ function App() {
               }
             />
 
-            {/* task routes*/}
-            <Route path="/tasks" element={<TasksPage />} />
-            <Route path="/rewards" element={<RewardsPage />} />
+            {/* Profile selection route */}
+            <Route
+              path="/profiles"
+              element={
+                <ProtectedRoute requiresOnboarding={false}>
+                  <ProfileSelectionPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Main app entry point */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute requiresOnboarding={false} requiresProfileSelection={false}>
+                  <MainRouter />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected app routes */}
             <Route
-              path="/*"
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <AppLayout>
-                    <Routes>
-                      <Route path="/" element={<DashboardRouter />} />
-                      <Route path="/tasks" element={<div>Tasks Page - Coming Soon</div>} />
-                      <Route path="/rewards" element={<div>Rewards Page - Coming Soon</div>} />
-                      <Route path="/notifications" element={<div>Notifications - Coming Soon</div>} />
-                      <Route path="/settings" element={<div>Settings - Coming Soon</div>} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
+                    <DashboardRouter />
                   </AppLayout>
                 </ProtectedRoute>
               }
             />
+
+            <Route
+              path="/tasks"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <TasksPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/rewards"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <RewardsPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <div>Notifications - Coming Soon</div>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <div>Settings - Coming Soon</div>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </SidebarProvider>
       </AuthProvider>
