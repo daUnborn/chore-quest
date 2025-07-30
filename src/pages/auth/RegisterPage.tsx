@@ -15,6 +15,8 @@ export function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    parentPin: '',
+    confirmParentPin: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,9 +42,19 @@ export function RegisterPage() {
       return;
     }
 
+    if (formData.parentPin.length !== 4) {
+      setValidationError('Parent PIN must be exactly 4 digits');
+      return;
+    }
+
+    if (formData.parentPin !== formData.confirmParentPin) {
+      setValidationError('Parent PINs do not match');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await register(formData.email, formData.password, formData.displayName);
+      await register(formData.email, formData.password, formData.displayName, formData.parentPin);
       navigate('/onboarding');
     } catch (err) {
       // Error is handled in context
@@ -139,6 +151,35 @@ export function RegisterPage() {
               leftIcon={<Lock className="h-4 w-4" />}
               required
             />
+
+<div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Parent PIN"
+                type="password"
+                name="parentPin"
+                placeholder="4-digit PIN"
+                value={formData.parentPin}
+                onChange={handleChange}
+                maxLength={4}
+                className="text-center text-lg tracking-widest"
+                required
+              />
+
+              <Input
+                label="Confirm PIN"
+                type="password"
+                name="confirmParentPin"
+                placeholder="Confirm PIN"
+                value={formData.confirmParentPin}
+                onChange={handleChange}
+                maxLength={4}
+                className="text-center text-lg tracking-widest"
+                required
+              />
+            </div>
+            <p className="text-xs text-medium-gray text-center">
+              This PIN will be used for profile management and secure actions
+            </p>
 
             {(error || validationError) && (
               <p className="text-sm text-coral-accent text-center">

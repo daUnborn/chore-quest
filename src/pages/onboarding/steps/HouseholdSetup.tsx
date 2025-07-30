@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Home, Users, Loader2 } from 'lucide-react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +20,7 @@ interface HouseholdSetupProps {
 export function HouseholdSetup({ onNext }: HouseholdSetupProps) {
   const { data, updateData } = useOnboarding();
   const { currentUser, updateUserProfile, refreshUserProfile } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'choice' | 'create' | 'join'>('create');
   const [householdName, setHouseholdName] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -62,7 +64,7 @@ const handleCreateHousehold = async () => {
       //console.log('Profile refreshed');
 
       // Navigate to next step
-      onNext();
+      navigate('/profiles');
     } catch (err) {
       console.error('Error creating household:', err);
       setError('Failed to create household. Please try again.');
@@ -119,7 +121,7 @@ const handleCreateHousehold = async () => {
     }
   };
 
-  if (mode === 'choice') {
+if (mode === 'create') {
     return (
       <div className="space-y-6">
         <motion.div
@@ -127,78 +129,59 @@ const handleCreateHousehold = async () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center text-white"
         >
-          <h2 className="text-2xl font-bold mb-2">Set Up Your Household</h2>
-          <p className="text-white/80">Create a new family or join an existing one</p>
+          <h1 className="text-3xl font-bold mb-2">Create Your Family</h1>
+          <p className="text-white/80">Choose a fun name for your household</p>
         </motion.div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Card
-              variant="interactive"
-              className="p-6 text-center cursor-pointer"
-              onClick={() => setMode('create')}
-            >
-              <Home className="h-16 w-16 mx-auto mb-3 text-pastel-blue" />
-              <h3 className="text-lg font-semibold mb-1">Create New</h3>
-              <p className="text-sm text-medium-gray">Start a new family</p>
-            </Card>
-          </motion.div>
+        <Card className="p-6">
+          <form onSubmit={(e) => { e.preventDefault(); handleCreateHousehold(); }}>
+            <Input
+              label="Household Name"
+              placeholder="The Smith Family"
+              value={householdName}
+              onChange={(e) => setHouseholdName(e.target.value)}
+              error={error}
+              className="mb-6"
+              required
+            />
 
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Card
-              variant="interactive"
-              className="p-6 text-center cursor-pointer"
-              onClick={() => setMode('join')}
+            <Button
+              type="submit"
+              fullWidth
+              size="lg"
+              isLoading={isLoading}
+              disabled={isLoading || !householdName.trim()}
             >
-              <Users className="h-16 w-16 mx-auto mb-3 text-mint-green" />
-              <h3 className="text-lg font-semibold mb-1">Join Family</h3>
-              <p className="text-sm text-medium-gray">Enter a family code</p>
-            </Card>
-          </motion.div>
-        </div>
+              Create Household
+            </Button>
+          </form>
 
-        <div className="text-center">
-          <Button
-            variant="ghost"
-            onClick={() => setMode('join')}
-            className="text-white hover:bg-white/10"
-          >
-            Already have a family code? Join instead
-          </Button>
-        </div>
+        </Card>
       </div>
     );
   }
 
-  if (mode === 'create') {
-    return (
+return (
+    <div className="space-y-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center text-white"
+      >
+        <h1 className="text-3xl font-bold mb-2">Join a Family</h1>
+        <p className="text-white/80">Enter the 6-character family code</p>
+      </motion.div>
+
       <Card className="p-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setMode('choice')}
-          className="mb-4"
-        >
-          ← Back
-        </Button>
-
-        <h2 className="text-2xl font-bold mb-2">Create Your Family</h2>
-        <p className="text-medium-gray mb-6">Choose a fun name for your household</p>
-
-        <form onSubmit={(e) => { e.preventDefault(); handleCreateHousehold(); }}>
+        <form onSubmit={(e) => { e.preventDefault(); handleJoinHousehold(); }}>
           <Input
-            label="Household Name"
-            placeholder="The Smith Family"
-            value={householdName}
-            onChange={(e) => setHouseholdName(e.target.value)}
+            label="Family Code"
+            placeholder="ABC123"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
             error={error}
-            className="mb-6"
+            maxLength={6}
+            className="mb-6 text-center text-2xl font-mono"
             required
           />
 
@@ -207,51 +190,22 @@ const handleCreateHousehold = async () => {
             fullWidth
             size="lg"
             isLoading={isLoading}
-            disabled={isLoading || !householdName.trim()}
+            disabled={isLoading || joinCode.length !== 6}
           >
-            Create Household
+            Join Household
           </Button>
         </form>
+
+        <div className="text-center mt-4">
+          <Button
+            variant="ghost"
+            onClick={() => setMode('create')}
+            className="text-medium-gray hover:text-dark-slate"
+          >
+            Want to create a new family instead?
+          </Button>
+        </div>
       </Card>
-    );
-  }
-
-  return (
-    <Card className="p-6">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setMode('choice')}
-        className="mb-4"
-      >
-        ← Back
-      </Button>
-
-      <h2 className="text-2xl font-bold mb-2">Join a Family</h2>
-      <p className="text-medium-gray mb-6">Enter the 6-character family code</p>
-
-      <form onSubmit={(e) => { e.preventDefault(); handleJoinHousehold(); }}>
-        <Input
-          label="Family Code"
-          placeholder="ABC123"
-          value={joinCode}
-          onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-          error={error}
-          maxLength={6}
-          className="mb-6 text-center text-2xl font-mono"
-          required
-        />
-
-        <Button
-          type="submit"
-          fullWidth
-          size="lg"
-          isLoading={isLoading}
-          disabled={isLoading || joinCode.length !== 6}
-        >
-          Join Household
-        </Button>
-      </form>
-    </Card>
+    </div>
   );
 }

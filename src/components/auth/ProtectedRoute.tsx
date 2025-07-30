@@ -5,10 +5,12 @@ import { Spinner } from '@/components/ui/Spinner';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiresOnboarding?: boolean;
-  requiresProfileSelection?: boolean;
 }
 
-export function ProtectedRoute({ children, requiresOnboarding = true, requiresProfileSelection = true }: ProtectedRouteProps) {
+export function ProtectedRoute({
+  children,
+  requiresOnboarding = true
+}: ProtectedRouteProps) {
   const { currentUser, userProfile, loading } = useAuth();
 
   if (loading) {
@@ -26,11 +28,6 @@ export function ProtectedRoute({ children, requiresOnboarding = true, requiresPr
   // Check if user needs onboarding (household setup)
   if (requiresOnboarding && userProfile && userProfile.householdIds.length === 0) {
     return <Navigate to="/onboarding" replace />;
-  }
-
-  // Check if user needs to select profile
-  if (requiresProfileSelection && userProfile && userProfile.householdIds.length > 0 && !userProfile.activeProfile) {
-    return <Navigate to="/profiles" replace />;
   }
 
   return <>{children}</>;

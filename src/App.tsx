@@ -15,8 +15,18 @@ import { RewardsPage } from '@/pages/rewards/RewardsPage';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 
 // Dashboard router component - always show parent dashboard
+// Dashboard router component
 function DashboardRouter() {
-  return <ParentDashboard />;
+  const { userProfile } = useAuth();
+
+  // If activeProfile is 'parent', show parent dashboard
+  // If activeProfile is a profile ID, show child dashboard
+  if (userProfile?.activeProfile === 'parent') {
+    return <ParentDashboard />;
+  }
+
+  // For any other profile (child profiles), show child dashboard
+  return <ChildDashboard />;
 }
 
 // Main router to determine user flow
@@ -40,8 +50,8 @@ function MainRouter() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // If household exists, go directly to dashboard
-  return <Navigate to="/dashboard" replace />;
+  // If household exists, go to profile selection
+  return <Navigate to="/profiles" replace />;
 }
 
 function App() {
@@ -79,7 +89,7 @@ function App() {
             <Route
               path="/"
               element={
-                <ProtectedRoute requiresOnboarding={false} requiresProfileSelection={false}>
+                <ProtectedRoute requiresOnboarding={false}>
                   <MainRouter />
                 </ProtectedRoute>
               }

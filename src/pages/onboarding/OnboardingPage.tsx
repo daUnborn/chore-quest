@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { HouseholdSetup } from './steps/HouseholdSetup';
-import { OnboardingComplete } from './steps/OnboardingComplete';
 import { useAuth } from '@/contexts/AuthContext';
 
-const steps = [HouseholdSetup, OnboardingComplete];
+const steps = [HouseholdSetup];
 
 export function OnboardingPage() {
   const navigate = useNavigate();

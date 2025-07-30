@@ -22,7 +22,7 @@ interface AuthContextType {
     loading: boolean;
     error: string | null;
     login: (email: string, password: string) => Promise<void>;
-    register: (email: string, password: string, displayName: string) => Promise<void>;
+    register: (email: string, password: string, displayName: string, parentPin?: string) => Promise<void>;
     loginWithGoogle: () => Promise<void>;
     logout: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
@@ -50,9 +50,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch user profile from Firestore
     const fetchUserProfile = async (uid: string) => {
         try {
+            console.log('Fetching user profile for:', uid);
             const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, uid));
             if (userDoc.exists()) {
-                setUserProfile(userDoc.data() as UserProfile);
+                const profile = userDoc.data() as UserProfile;
+                console.log('User profile loaded:', profile);
+                setUserProfile(profile);
+            } else {
+                console.log('No user profile found for:', uid);
             }
         } catch (err) {
             console.error('Error fetching user profile:', err);
@@ -68,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Create user profile in Firestore
     const createUserProfile = async (
         user: FirebaseUser,
-        additionalData?: Partial<User>
+        additionalData?: Partial<UserProfile>
     ) => {
         const userRef = doc(db, COLLECTIONS.USERS, user.uid);
 
@@ -88,7 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             completedTasks: 0,
             joinedHouseholds: [],
             childProfiles: [],
-            //activeProfile: undefined, // Will be set when user selects profile
             ...additionalData,
         };
 
@@ -96,7 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserProfile(defaultProfile);
     };
 
-    // Login with email and password
     // Login with email and password
     const login = async (email: string, password: string) => {
         try {
@@ -113,11 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Register with email and password
-    const register = async (email: string, password: string, displayName: string) => {
+    const register = async (email: string, password: string, displayName: string, parentPin?: string) => {
         try {
             setError(null);
             console.log('Creating account for:', email);
-
+            
             const { user } = await createUserWithEmailAndPassword(auth, email, password);
             console.log('Account created, updating profile...');
 
@@ -125,19 +128,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await updateProfile(user, { displayName });
             console.log('Display name updated, creating user profile...');
 
-            // Create user profile
-            await createUserProfile(user, { displayName });
+            // Create user profile with parent PIN
+            await createUserProfile(user, { displayName, parentPin });
             console.log('User profile created successfully');
-
+            
         } catch (err: any) {
             console.error('Registration error:', err);
-
+            
             // If account was created but profile creation failed, still proceed
             if (err.code === 'permission-denied' || err.message?.includes('profile')) {
                 console.log('Account created but profile creation had issues - this is okay');
                 return; // Don't throw error if account exists
             }
-
+            
             setError(getAuthErrorMessage(err.code));
             throw err;
         }
@@ -207,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen to auth state changes
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            console.log('Auth state changed:', user?.uid || 'logged out');
             setCurrentUser(user);
 
             if (user) {

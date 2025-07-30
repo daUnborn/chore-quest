@@ -34,6 +34,7 @@ export interface UserProfile extends User {
   joinedHouseholds: HouseholdMembership[];
   childProfiles?: ChildProfile[]; // For parent accounts
   activeProfile?: string; // 'parent' or child profile ID
+  parentPin?: string; // PIN for parent verification
 }
 
 // Household types
