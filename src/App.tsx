@@ -10,6 +10,7 @@ import { ParentDashboard } from '@/pages/dashboard/ParentDashboard';
 import { ChildDashboard } from '@/pages/dashboard/ChildDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { TasksPage } from '@/pages/tasks/TasksPage';
+import { RewardsPage } from '@/pages/rewards/RewardsPage';
 
 // Dashboard router component
 function DashboardRouter() {
@@ -45,6 +46,7 @@ function App() {
 
           {/* task routes*/}
           <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/rewards" element={<RewardsPage />} />
 
           {/* Protected app routes */}
           <Route

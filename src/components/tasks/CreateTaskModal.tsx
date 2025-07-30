@@ -104,164 +104,167 @@ export function CreateTaskModal({
       isOpen={isOpen}
       onClose={onClose}
       title={editTask ? 'Edit Task' : 'Create New Task'}
-      size="lg"
+      size="md"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Title */}
-        <Input
-          label="Task Title"
-          placeholder="e.g., Make bed, Do homework"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          required
-        />
-
-        {/* Description */}
-        <div>
-          <label className="block text-sm font-medium text-dark-slate mb-1">
-            Description (optional)
-          </label>
-          <textarea
-            className="w-full rounded-lg border border-light-gray bg-white px-4 py-2 text-dark-slate resize-none focus:border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue focus:ring-opacity-20"
-            rows={3}
-            placeholder="Add any special instructions..."
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          />
-        </div>
-
-        {/* Category */}
-        <div>
-          <label className="block text-sm font-medium text-dark-slate mb-2">
-            <Tag className="inline h-4 w-4 mr-1" />
-            Category
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {TASK_CATEGORIES.map((cat) => (
-              <motion.button
-                key={cat.value}
-                type="button"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setFormData({ ...formData, category: cat.value })}
-                className={`p-3 rounded-lg border-2 transition-all ${
-                  formData.category === cat.value
-                    ? 'border-pastel-blue bg-pastel-blue/10'
-                    : 'border-light-gray hover:border-medium-gray'
-                }`}
-              >
-                <div className="text-2xl mb-1">{cat.icon}</div>
-                <div className="text-xs font-medium">{cat.label}</div>
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* Assign To */}
-        <div>
-          <label className="block text-sm font-medium text-dark-slate mb-2">
-            <Users className="inline h-4 w-4 mr-1" />
-            Assign To
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {members.map((member) => (
-              <motion.button
-                key={member.id}
-                type="button"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => toggleAssignee(member.id)}
-                className={`px-4 py-2 rounded-full font-medium transition-all ${
-                  formData.assignedTo.includes(member.id)
-                    ? 'bg-pastel-blue text-white'
-                    : 'bg-light-gray text-dark-slate hover:bg-medium-gray/20'
-                }`}
-              >
-                {member.name}
-                {member.role === 'child' && ' 🧒'}
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* Due Date & Time */}
-        <div className="grid grid-cols-2 gap-4">
+      <div className="max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Title */}
           <Input
-            label="Due Date & Time"
-            type="datetime-local"
-            value={formData.dueDate}
-            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-            leftIcon={<Calendar className="h-4 w-4" />}
+            label="Task Title"
+            placeholder="e.g., Make bed, Do homework"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             required
           />
-          
+
+          {/* Description */}
           <div>
             <label className="block text-sm font-medium text-dark-slate mb-1">
-              Recurring Task
+              Description (optional)
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.isRecurring}
-                onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
-                className="w-4 h-4 text-pastel-blue rounded focus:ring-pastel-blue"
-              />
-              <span className="text-sm text-medium-gray">Repeat daily</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Points */}
-        <div>
-          <label className="block text-sm font-medium text-dark-slate mb-2">
-            <Trophy className="inline h-4 w-4 mr-1" />
-            Points
-          </label>
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2">
-              {Object.entries(DEFAULT_TASK_POINTS).map(([level, points]) => (
-                <Button
-                  key={level}
-                  type="button"
-                  variant={formData.points === points ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => quickSetPoints(points)}
-                >
-                  {level.charAt(0).toUpperCase() + level.slice(1)} ({points})
-                </Button>
-              ))}
-            </div>
-            <Input
-              type="number"
-              value={formData.points}
-              onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })}
-              className="w-20"
-              min="1"
-              max="100"
+            <textarea
+              className="w-full rounded-lg border border-light-gray bg-white px-3 py-2 text-dark-slate resize-none focus:border-pastel-blue focus:outline-none focus:ring-2 focus:ring-pastel-blue focus:ring-opacity-20"
+              rows={2}
+              placeholder="Add any special instructions..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            className="flex-1"
-            disabled={!formData.title || formData.assignedTo.length === 0}
-          >
-            {editTask ? 'Update Task' : 'Create Task'}
-          </Button>
-        </div>
-      </form>
+          {/* Category */}
+          <div>
+            <label className="block text-sm font-medium text-dark-slate mb-2">
+              <Tag className="inline h-4 w-4 mr-1" />
+              Category
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {TASK_CATEGORIES.map((cat) => (
+                <motion.button
+                  key={cat.value}
+                  type="button"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setFormData({ ...formData, category: cat.value })}
+                  className={`p-2 rounded-lg border-2 transition-all text-center ${
+                    formData.category === cat.value
+                      ? 'border-pastel-blue bg-pastel-blue/10'
+                      : 'border-light-gray hover:border-medium-gray'
+                  }`}
+                >
+                  <div className="text-lg mb-1">{cat.icon}</div>
+                  <div className="text-xs font-medium">{cat.label}</div>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
+          {/* Assign To */}
+          <div>
+            <label className="block text-sm font-medium text-dark-slate mb-2">
+              <Users className="inline h-4 w-4 mr-1" />
+              Assign To
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {members.map((member) => (
+                <motion.button
+                  key={member.id}
+                  type="button"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => toggleAssignee(member.id)}
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                    formData.assignedTo.includes(member.id)
+                      ? 'bg-pastel-blue text-white'
+                      : 'bg-light-gray text-dark-slate hover:bg-medium-gray/20'
+                  }`}
+                >
+                  {member.name}
+                  {member.role === 'child' && ' 🧒'}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+
+          {/* Due Date & Recurring */}
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Due Date & Time"
+              type="datetime-local"
+              value={formData.dueDate}
+              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              leftIcon={<Calendar className="h-4 w-4" />}
+              required
+            />
+            
+            <div>
+              <label className="block text-sm font-medium text-dark-slate mb-1">
+                Recurring Task
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer mt-2">
+                <input
+                  type="checkbox"
+                  checked={formData.isRecurring}
+                  onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+                  className="w-4 h-4 text-pastel-blue rounded focus:ring-pastel-blue"
+                />
+                <span className="text-sm text-medium-gray">Repeat daily</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Points */}
+          <div>
+            <label className="block text-sm font-medium text-dark-slate mb-2">
+              <Trophy className="inline h-4 w-4 mr-1" />
+              Points
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex gap-1">
+                {Object.entries(DEFAULT_TASK_POINTS).map(([level, points]) => (
+                  <Button
+                    key={level}
+                    type="button"
+                    variant={formData.points === points ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => quickSetPoints(points)}
+                    className="text-xs px-2 py-1"
+                  >
+                    {level} ({points})
+                  </Button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                value={formData.points}
+                onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })}
+                className="w-16 text-sm"
+                min="1"
+                max="100"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-3 border-t sticky bottom-0 bg-white">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              className="flex-1"
+              disabled={!formData.title || formData.assignedTo.length === 0}
+            >
+              {editTask ? 'Update Task' : 'Create Task'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </Modal>
   );
 }
