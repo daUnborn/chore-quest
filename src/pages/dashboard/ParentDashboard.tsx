@@ -22,15 +22,19 @@ import { FAB } from '@/components/layout/FAB';
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal';
 import { CreateRewardModal } from '@/components/rewards/CreateRewardModal';
 import { useTasks } from '@/hooks/useTasks';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import { FamilyLeaderboard } from '@/components/dashboard/FamilyLeaderboard';
 
 
 export function ParentDashboard() {
   const navigate = useNavigate();
-  const { userProfile, logout } = useAuth();
+  const { userProfile, logout, getCurrentDisplayName, currentUser } = useAuth();
+  const { createTask } = useTasks();
+  const { stats, familyLeaderboard, loading } = useDashboardData();
   const [weekDays, setWeekDays] = useState<any[]>([]);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showCreateRewardModal, setShowCreateRewardModal] = useState(false);
-  const { createTask } = useTasks(); // Add this line
+  const [showRecap, setShowRecap] = useState(false);
 
 
   useEffect(() => {
@@ -52,32 +56,46 @@ export function ParentDashboard() {
   const kpiData = [
     {
       title: 'Tasks Today',
-      value: '8/12',
+      value: `${stats.tasksCompletedToday}/${stats.tasksToday}`,
       icon: <CheckCircle className="h-8 w-8" />,
       color: 'blue' as const,
-      trend: { value: 15, isPositive: true },
+      trend: stats.tasksToday > 0 ? {
+        value: Math.round((stats.tasksCompletedToday / stats.tasksToday) * 100),
+        isPositive: true
+      } : undefined,
     },
     {
-      title: 'Active Kids',
-      value: '3',
+      title: 'Family Members',
+      value: familyLeaderboard.length.toString(),
       icon: <Users className="h-8 w-8" />,
       color: 'green' as const,
     },
     {
       title: 'Total Points',
-      value: '245',
+      value: stats.totalPoints.toString(),
       icon: <Trophy className="h-8 w-8" />,
       color: 'yellow' as const,
       trend: { value: 8, isPositive: true },
     },
     {
-      title: 'Completion',
-      value: '67%',
+      title: 'Family Streak',
+      value: `${stats.currentStreak} days`,
       icon: <TrendingUp className="h-8 w-8" />,
       color: 'purple' as const,
-      trend: { value: 12, isPositive: true },
+      trend: { value: stats.currentStreak, isPositive: true },
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-light-gray pb-20">
+        <PageHeader title={`Welcome back, ${getCurrentDisplayName()}!`} showMenuButton={false} />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pastel-blue"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-light-gray pb-20">
@@ -143,7 +161,7 @@ export function ParentDashboard() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/recap')}
+                onClick={() => setShowRecap(true)}
                 className="flex flex-col items-center gap-2 h-auto py-3"
               >
                 <FileText className="h-5 w-5" />
@@ -191,7 +209,19 @@ export function ParentDashboard() {
           </Card>
         </motion.div>
 
-        {/* Temporary Logout Button */}
+        {/* Family Leaderboard */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <FamilyLeaderboard
+            members={familyLeaderboard}
+            currentUserId={currentUser?.uid || 'parent'}
+          />
+        </motion.div>
+
+                {/* Temporary Logout Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

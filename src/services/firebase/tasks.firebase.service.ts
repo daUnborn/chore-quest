@@ -4,6 +4,7 @@ import {
   doc,
   setDoc,
   getDocs,
+  getDoc,
   query,
   where,
   orderBy,
@@ -169,12 +170,23 @@ class TasksService {
   }
 
   // Update task status (common operation)
+  // Update task status (common operation)
   async updateTaskStatus(
     taskId: string,
     newStatus: TaskStatus,
     completedBy?: string
-  ): Promise<void> {
+  ): Promise<{ task: Task; pointsAwarded?: number }> {
     try {
+      // Get the task first to check points
+      const taskRef = doc(db, COLLECTIONS.TASKS, taskId);
+      const taskDoc = await getDoc(taskRef);
+      
+      if (!taskDoc.exists()) {
+        throw new Error('Task not found');
+      }
+      
+      const task = { id: taskDoc.id, ...taskDoc.data() } as Task;
+      
       const updates: UpdateTaskData = {
         status: newStatus,
       };
@@ -184,13 +196,78 @@ class TasksService {
         updates.completedAt = new Date();
         if (completedBy) {
           updates.completedBy = completedBy;
+          
+          // Award points to the user who completed the task
+          await this.awardPoints(completedBy, task.points, taskId);
         }
       }
 
       await this.updateTask(taskId, updates);
+      
+      return { 
+        task: { ...task, ...updates },
+        pointsAwarded: newStatus === 'done' ? task.points : undefined
+      };
     } catch (error) {
       console.error('Error updating task status:', error);
       throw new Error('Failed to update task status');
+    }
+  }
+
+  // Award points to user
+  // Award points to user (works for both parent and child profiles)
+  private async awardPoints(userId: string, points: number, taskId: string): Promise<void> {
+    try {
+      const userRef = doc(db, COLLECTIONS.USERS, userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentPoints = userData.points || 0;
+        
+        await updateDoc(userRef, {
+          points: currentPoints + points,
+          completedTasks: (userData.completedTasks || 0) + 1,
+          lastTaskCompletedAt: new Date(),
+        });
+        
+        console.log(`Awarded ${points} points to user ${userId}`);
+        
+        // If this is a child profile, also update the parent's childProfiles array
+        if (userData.parentId) {
+          await this.updateParentChildProfile(userData.parentId, userId, {
+            points: currentPoints + points,
+            completedTasks: (userData.completedTasks || 0) + 1,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error awarding points:', error);
+    }
+  }
+
+  // Update child profile data in parent's document
+  private async updateParentChildProfile(parentId: string, childId: string, updates: any): Promise<void> {
+    try {
+      const parentRef = doc(db, COLLECTIONS.USERS, parentId);
+      const parentDoc = await getDoc(parentRef);
+      
+      if (parentDoc.exists()) {
+        const parentData = parentDoc.data();
+        const childProfiles = parentData.childProfiles || [];
+        
+        const updatedProfiles = childProfiles.map((child: any) => 
+          child.id === childId ? { ...child, ...updates } : child
+        );
+        
+        await updateDoc(parentRef, {
+          childProfiles: updatedProfiles
+        });
+        
+        console.log(`Updated child profile ${childId} in parent ${parentId}`);
+      }
+    } catch (error) {
+      console.error('Error updating parent child profile:', error);
     }
   }
 

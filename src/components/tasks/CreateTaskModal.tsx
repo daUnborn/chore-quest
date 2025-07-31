@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, Users, Trophy, Tag, X } from 'lucide-react';
+import { Calendar, Clock, Users, Trophy, Tag, X, Repeat } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -35,6 +35,8 @@ export function CreateTaskModal({
     assignedTo: [] as string[],
     dueDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     isRecurring: false,
+    recurringFrequency: 'weekly' as 'daily' | 'weekly' | 'monthly',
+    daysOfWeek: [] as number[],
   });
 
   useEffect(() => {
@@ -47,6 +49,8 @@ export function CreateTaskModal({
         assignedTo: editTask.assignedTo,
         dueDate: format(editTask.dueDate.toDate(), "yyyy-MM-dd'T'HH:mm"),
         isRecurring: editTask.isRecurring,
+        recurringFrequency: editTask.recurringPattern?.frequency || 'weekly',
+        daysOfWeek: editTask.recurringPattern?.daysOfWeek || [],
       });
     } else {
       // Reset form
@@ -58,11 +62,13 @@ export function CreateTaskModal({
         assignedTo: [],
         dueDate: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
         isRecurring: false,
+        recurringFrequency: 'weekly',
+        daysOfWeek: [],
       });
     }
   }, [editTask, isOpen]); // Added isOpen to reset form when modal opens
 
-const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     const taskData: any = {
@@ -78,8 +84,8 @@ const handleSubmit = (e: React.FormEvent) => {
     // Only add recurringPattern if isRecurring is true
     if (formData.isRecurring) {
       taskData.recurringPattern = {
-        frequency: 'daily' as const,
-        daysOfWeek: [],
+        frequency: formData.recurringFrequency,
+        daysOfWeek: formData.recurringFrequency === 'weekly' ? formData.daysOfWeek : undefined,
       };
     }
 
@@ -99,7 +105,7 @@ const handleSubmit = (e: React.FormEvent) => {
     setFormData(prev => ({ ...prev, points }));
   };
 
-// Get household members from user profile
+  // Get household members from user profile
   const getHouseholdMembers = () => {
     const members: { id: string; name: string; role: 'parent' | 'child' }[] = [];
 
@@ -107,10 +113,10 @@ const handleSubmit = (e: React.FormEvent) => {
     if (userProfile) {
       // Get original parent name by fetching from the user document
       // For now, we'll use a fallback approach
-      const originalParentName = userProfile.displayName.includes(' ') 
-        ? userProfile.displayName 
+      const originalParentName = userProfile.displayName.includes(' ')
+        ? userProfile.displayName
         : userProfile.email?.split('@')[0] || 'Parent';
-        
+
       members.push({
         id: 'parent',
         name: originalParentName,
@@ -180,11 +186,10 @@ const handleSubmit = (e: React.FormEvent) => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setFormData({ ...formData, category: cat.value })}
-                  className={`p-2 rounded-lg border-2 transition-all text-center ${
-                    formData.category === cat.value
+                  className={`p-2 rounded-lg border-2 transition-all text-center ${formData.category === cat.value
                       ? 'border-pastel-blue bg-pastel-blue/10'
                       : 'border-light-gray hover:border-medium-gray'
-                  }`}
+                    }`}
                 >
                   <div className="text-lg mb-1">{cat.icon}</div>
                   <div className="text-xs font-medium">{cat.label}</div>
@@ -207,11 +212,10 @@ const handleSubmit = (e: React.FormEvent) => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => toggleAssignee(member.id)}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                    formData.assignedTo.includes(member.id)
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${formData.assignedTo.includes(member.id)
                       ? 'bg-pastel-blue text-white'
                       : 'bg-light-gray text-dark-slate hover:bg-medium-gray/20'
-                  }`}
+                    }`}
                 >
                   {member.name}
                   {member.role === 'parent' && ' 👨‍👩‍👧‍👦'}
@@ -228,30 +232,88 @@ const handleSubmit = (e: React.FormEvent) => {
           </div>
 
           {/* Due Date & Recurring */}
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Due Date & Time"
-              type="datetime-local"
-              value={formData.dueDate}
-              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-              leftIcon={<Calendar className="h-4 w-4" />}
-              required
-            />
+          {/* Due Date */}
+          <Input
+            label="Due Date & Time"
+            type="datetime-local"
+            value={formData.dueDate}
+            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+            leftIcon={<Calendar className="h-4 w-4" />}
+            required
+          />
 
-            <div>
-              <label className="block text-sm font-medium text-dark-slate mb-1">
-                Recurring Task
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer mt-2">
-                <input
-                  type="checkbox"
-                  checked={formData.isRecurring}
-                  onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
-                  className="w-4 h-4 text-pastel-blue rounded focus:ring-pastel-blue"
-                />
-                <span className="text-sm text-medium-gray">Repeat daily</span>
-              </label>
-            </div>
+          {/* Recurring Settings */}
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <input
+                type="checkbox"
+                checked={formData.isRecurring}
+                onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+                className="w-4 h-4 text-pastel-blue rounded focus:ring-pastel-blue"
+              />
+              <span className="text-sm font-medium text-dark-slate">
+                <Repeat className="inline h-4 w-4 mr-1" />
+                Make this a recurring task
+              </span>
+            </label>
+
+            {formData.isRecurring && (
+              <div className="space-y-3 p-3 bg-light-gray rounded-lg">
+                {/* Frequency Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-dark-slate mb-2">
+                    Repeat Every
+                  </label>
+                  <div className="flex gap-2">
+                    {['daily', 'weekly', 'monthly'].map((freq) => (
+                      <Button
+                        key={freq}
+                        type="button"
+                        variant={formData.recurringFrequency === freq ? 'primary' : 'outline'}
+                        size="sm"
+                        onClick={() => setFormData({
+                          ...formData,
+                          recurringFrequency: freq as 'daily' | 'weekly' | 'monthly',
+                          daysOfWeek: freq === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : []
+                        })}
+                        className="text-xs capitalize"
+                      >
+                        {freq}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Days of Week Selection (for weekly) */}
+                {formData.recurringFrequency === 'weekly' && (
+                  <div>
+                    <label className="block text-sm font-medium text-dark-slate mb-2">
+                      Select Days
+                    </label>
+                    <div className="grid grid-cols-7 gap-1">
+                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            const newDays = formData.daysOfWeek.includes(index)
+                              ? formData.daysOfWeek.filter(d => d !== index)
+                              : [...formData.daysOfWeek, index];
+                            setFormData({ ...formData, daysOfWeek: newDays });
+                          }}
+                          className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${formData.daysOfWeek.includes(index)
+                              ? 'bg-pastel-blue text-white'
+                              : 'bg-white text-medium-gray hover:bg-gray-100 border border-light-gray'
+                            }`}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Points */}

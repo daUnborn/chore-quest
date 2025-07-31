@@ -1,96 +1,123 @@
-import { BaseService, ServiceResponse } from './base.service';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { COLLECTIONS } from '@/lib/firebase/collections';
 
 interface StreakData {
   currentStreak: number;
   longestStreak: number;
-  lastActiveDate: Date;
+  lastActiveDate: Date | null;
   streakHistory: Date[];
 }
 
-class StreaksService extends BaseService {
-  private userStreaks: Map<string, StreakData> = new Map();
-
+class StreaksService {
   // Update streak when task is completed
-  async updateStreak(userId: string): Promise<ServiceResponse<StreakData>> {
-    return this.handleError(async () => {
+  async updateUserStreak(userId: string): Promise<StreakData> {
+    try {
+      const userRef = doc(db, COLLECTIONS.USERS, userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        throw new Error('User not found');
+      }
+      
+      const userData = userDoc.data();
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-
-      let streakData = this.userStreaks.get(userId) || {
-        currentStreak: 0,
-        longestStreak: 0,
-        lastActiveDate: new Date(0),
-        streakHistory: [],
-      };
-
-      const lastActive = new Date(streakData.lastActiveDate);
-      lastActive.setHours(0, 0, 0, 0);
-
-      const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (daysDiff === 0) {
-        // Already active today, no change
-        return streakData;
-      } else if (daysDiff === 1) {
-        // Consecutive day, increment streak
-        streakData.currentStreak += 1;
-        streakData.longestStreak = Math.max(streakData.longestStreak, streakData.currentStreak);
-      } else {
-        // Streak broken, reset to 1
-        streakData.currentStreak = 1;
+      
+      let currentStreak = userData.currentStreak || 0;
+      let longestStreak = userData.longestStreak || 0;
+      let lastActiveDate = userData.lastActiveDate?.toDate() || null;
+      let streakHistory = userData.streakHistory || [];
+      
+      // Convert Firestore timestamps to dates
+      if (lastActiveDate) {
+        lastActiveDate.setHours(0, 0, 0, 0);
       }
-
-      streakData.lastActiveDate = today;
-      streakData.streakHistory.push(today);
-
-      this.userStreaks.set(userId, streakData);
-
-      return streakData;
-    });
-  }
-
-  // Get user's streak data
-  async getUserStreak(userId: string): Promise<ServiceResponse<StreakData>> {
-    return this.handleError(async () => {
-      const streakData = this.userStreaks.get(userId) || {
-        currentStreak: 0,
-        longestStreak: 0,
-        lastActiveDate: new Date(0),
-        streakHistory: [],
-      };
-
-      // Check if streak is still valid
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const lastActive = new Date(streakData.lastActiveDate);
-      lastActive.setHours(0, 0, 0, 0);
-
-      const daysDiff = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (daysDiff > 1) {
-        // Streak broken
-        streakData.currentStreak = 0;
-        this.userStreaks.set(userId, streakData);
-      }
-
-      return streakData;
-    });
-  }
-
-  // Get streak calendar data for visualization
-  async getStreakCalendar(userId: string, month: Date): Promise<ServiceResponse<Date[]>> {
-    return this.handleError(async () => {
-      const streakData = this.userStreaks.get(userId);
-      if (!streakData) return [];
-
-      const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
-      const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
-
-      return streakData.streakHistory.filter(date => {
-        return date >= startOfMonth && date <= endOfMonth;
+      
+      // Check if user already completed tasks today
+      const todayString = today.toISOString().split('T')[0];
+      const hasCompletedToday = streakHistory.some((date: any) => {
+        const historyDate = date.toDate ? date.toDate() : new Date(date);
+        return historyDate.toISOString().split('T')[0] === todayString;
       });
-    });
+      
+      if (hasCompletedToday) {
+        // Already counted today, just return current data
+        return {
+          currentStreak,
+          longestStreak,
+          lastActiveDate,
+          streakHistory: streakHistory.map((d: any) => d.toDate ? d.toDate() : new Date(d))
+        };
+      }
+      
+      // Calculate days since last activity
+      const daysSinceLastActive = lastActiveDate 
+        ? Math.floor((today.getTime() - lastActiveDate.getTime()) / (1000 * 60 * 60 * 24))
+        : Infinity;
+      
+      if (daysSinceLastActive === 1 || lastActiveDate === null) {
+        // Consecutive day or first day
+        currentStreak += 1;
+        longestStreak = Math.max(longestStreak, currentStreak);
+      } else if (daysSinceLastActive > 1) {
+        // Streak broken, start new streak
+        currentStreak = 1;
+      }
+      // If daysSinceLastActive === 0, user already completed tasks today (handled above)
+      
+      // Update user document
+      const updatedData = {
+        currentStreak,
+        longestStreak,
+        lastActiveDate: today,
+        streakHistory: [...streakHistory, today]
+      };
+      
+      await updateDoc(userRef, updatedData);
+      
+      console.log(`Updated streak for user ${userId}: ${currentStreak} days`);
+      
+      return {
+        currentStreak,
+        longestStreak,
+        lastActiveDate: today,
+        streakHistory: [...streakHistory.map((d: any) => d.toDate ? d.toDate() : new Date(d)), today]
+      };
+      
+    } catch (error) {
+      console.error('Error updating user streak:', error);
+      throw error;
+    }
+  }
+  
+  // Get user's current streak data
+  async getUserStreak(userId: string): Promise<StreakData> {
+    try {
+      const userRef = doc(db, COLLECTIONS.USERS, userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        return {
+          currentStreak: 0,
+          longestStreak: 0,
+          lastActiveDate: null,
+          streakHistory: []
+        };
+      }
+      
+      const userData = userDoc.data();
+      return {
+        currentStreak: userData.currentStreak || 0,
+        longestStreak: userData.longestStreak || 0,
+        lastActiveDate: userData.lastActiveDate?.toDate() || null,
+        streakHistory: (userData.streakHistory || []).map((d: any) => d.toDate ? d.toDate() : new Date(d))
+      };
+      
+    } catch (error) {
+      console.error('Error getting user streak:', error);
+      throw error;
+    }
   }
 }
 

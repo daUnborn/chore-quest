@@ -67,6 +67,7 @@ export interface HouseholdMembership {
 export type TaskStatus = 'todo' | 'in-progress' | 'review' | 'done' | 'archived';
 
 export interface Task {
+  recurringFrequency: string;
   id: string;
   householdId: string;
   title: string;

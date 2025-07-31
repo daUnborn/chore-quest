@@ -1,23 +1,28 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, ChevronRight, Camera } from 'lucide-react';
+import { Clock, ChevronRight, Camera, MoreVertical, Trash2, Eye } from 'lucide-react';
 import { Task, TaskStatus } from '@/types';
 import { cn } from '@/lib/utils/cn';
 import { Badge } from '@/components/ui/Badge';
 import { format } from 'date-fns';
 import { PhotoUploadModal } from './PhotoUploadModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '../ui/Button';
 
 interface TaskCardProps {
     task: Task;
     onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
     onPhotoUpload?: (taskId: string, photo: File) => void;
+    onDelete?: (taskId: string) => void;
+    onView?: (task: Task) => void;
 }
 
-export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps) {
+export function TaskCard({ task, onStatusChange, onPhotoUpload, onDelete, onView }: TaskCardProps) {
     const { userProfile } = useAuth();
     const [isAnimating, setIsAnimating] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
+    const [showActions, setShowActions] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const handleNextStatus = async () => {
         if (isAnimating) return;
@@ -93,7 +98,25 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps)
         return 'secondary';
     };
 
+    const isOverdue = () => {
+        const now = new Date();
+        const dueDate = task.dueDate.toDate();
+        return dueDate < now && task.status !== 'done' && task.status !== 'archived';
+    };
+
+    const getOverdueText = () => {
+        const now = new Date();
+        const dueDate = task.dueDate.toDate();
+        const diffHours = Math.ceil((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60));
+        
+        if (diffHours < 24) return `${diffHours}h overdue`;
+        const diffDays = Math.ceil(diffHours / 24);
+        return `${diffDays}d overdue`;
+    };
+
     const canAdvance = task.status !== 'done' && task.status !== 'archived';
+    const isChild = userProfile?.activeProfile !== 'parent';
+    const canMoveToNext = canAdvance && !(isChild && task.status === 'review');
 
     return (
         <>
@@ -104,9 +127,10 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps)
                 exit={{ opacity: 0, scale: 0.8 }}
                 whileHover={{ y: -2 }}
                 className={cn(
-                    'bg-white rounded-xl p-4 shadow-sm border-2 border-transparent',
+                    'rounded-xl p-4 shadow-sm border-2 border-transparent',
                     'hover:shadow-md transition-all duration-200',
-                    task.status === 'done' && 'opacity-75'
+                    task.status === 'done' && 'opacity-75',
+                    isOverdue() ? 'bg-red-50 border-red-200' : 'bg-white'
                 )}
             >
                 {/* Header */}
@@ -117,9 +141,49 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps)
                             {task.title}
                         </h4>
                     </div>
-                    <Badge variant="primary" size="sm">
-                        {task.points} pts
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="primary" size="sm">
+                            {task.points} pts
+                        </Badge>
+
+                        {/* Actions Menu */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowActions(!showActions)}
+                                className="p-1 rounded-full hover:bg-gray-100"
+                            >
+                                <MoreVertical className="h-4 w-4 text-medium-gray" />
+                            </button>
+
+                            {showActions && (
+                                <div className="absolute right-0 top-8 bg-white border border-light-gray rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                                    <button
+                                        onClick={() => {
+                                            onView?.(task);
+                                            setShowActions(false);
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                        View Details
+                                    </button>
+
+                                    {userProfile?.activeProfile === 'parent' && (
+                                        <button
+                                            onClick={() => {
+                                                setShowDeleteConfirm(true);
+                                                setShowActions(false);
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-coral-accent"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete Task
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Description */}
@@ -167,15 +231,21 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps)
                 )}
 
                 {/* Due Date */}
+                {/* Due Date */}
                 <div className="flex items-center gap-2 mb-4">
                     <Clock className="h-3 w-3 text-medium-gray" />
                     <Badge variant={getDueDateColor()} size="sm">
-                        {format(task.dueDate.toDate(), 'MMM d, h:mm a')}
+                        {isOverdue() ? getOverdueText() : format(task.dueDate.toDate(), 'MMM d, h:mm a')}
                     </Badge>
+                    {isOverdue() && (
+                        <Badge variant="danger" size="sm">
+                            ⚠️ OVERDUE
+                        </Badge>
+                    )}
                 </div>
 
                 {/* Status Button */}
-                {canAdvance && (
+                {canMoveToNext && (
                     <motion.button
                         onClick={handleNextStatus}
                         disabled={isAnimating}
@@ -194,16 +264,27 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps)
                         <span>
                             {task.status === 'todo' && 'Start Task'}
                             {task.status === 'in-progress' && 'Mark for Review'}
-                            {task.status === 'review' && 'Approve & Complete'}
+                            {task.status === 'review' && (isChild ? 'Waiting for Approval' : 'Approve & Complete')}
                             {task.status === 'done' && 'Archive'}
                         </span>
-                        <motion.div
-                            animate={{ rotate: isAnimating ? 180 : 0 }}
-                            transition={{ duration: 0.3 }}
-                        >
-                            <ChevronRight className="h-4 w-4" />
-                        </motion.div>
+                        {!isChild && (
+                            <motion.div
+                                animate={{ rotate: isAnimating ? 180 : 0 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </motion.div>
+                        )}
                     </motion.button>
+                )}
+
+                {/* Show message for children when task is in review */}
+                {isChild && task.status === 'review' && (
+                    <div className="w-full py-3 px-4 rounded-lg bg-gray-100 text-center">
+                        <span className="text-medium-gray text-sm">
+                            ⏳ Waiting for parent approval
+                        </span>
+                    </div>
                 )}
 
                 {/* Photo indicator for review */}
@@ -214,6 +295,37 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps)
                     </div>
                 )}
             </motion.div>
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                        <h3 className="text-lg font-semibold mb-2">Delete Task</h3>
+                        <p className="text-medium-gray mb-4">
+                            Are you sure you want to delete "{task.title}"? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="flex-1"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="danger"
+                                onClick={() => {
+                                    onDelete?.(task.id);
+                                    setShowDeleteConfirm(false);
+                                }}
+                                className="flex-1"
+                            >
+                                Delete
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Photo Upload Modal */}
             <PhotoUploadModal

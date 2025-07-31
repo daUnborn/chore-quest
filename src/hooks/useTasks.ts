@@ -74,10 +74,24 @@ export function useTasks() {
   };
 
   // Update task status
+ // Update task status
   const updateTaskStatus = async (taskId: string, newStatus: TaskStatus): Promise<void> => {
     try {
       console.log('Updating task status:', taskId, newStatus);
-      await tasksService.updateTaskStatus(taskId, newStatus, currentUser?.uid);
+      const result = await tasksService.updateTaskStatus(taskId, newStatus, currentUser?.uid);
+      
+      // If task was completed and points were awarded, update streak
+      if (newStatus === 'done' && result.pointsAwarded && currentUser?.uid) {
+        try {
+          const { streaksService } = await import('@/services/streaks.service');
+          await streaksService.updateUserStreak(currentUser.uid);
+          console.log('Streak updated after task completion');
+        } catch (streakError) {
+          console.error('Error updating streak:', streakError);
+          // Don't throw - points were still awarded
+        }
+      }
+      
       console.log('Task status updated successfully');
     } catch (error) {
       console.error('Error updating task status:', error);

@@ -135,38 +135,62 @@ export function ProfileSelectionPage() {
     };
 
     const handleAddChild = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!userProfile || !currentUser) return;
+    e.preventDefault();
+    if (!userProfile || !currentUser) return;
 
-        setIsLoading(true);
-        try {
-            const newProfile: ChildProfile = {
-                id: `profile_${Date.now()}`,
-                name: childForm.name,
-                age: childForm.age,
-                avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${childForm.name}`,
-                pinEnabled: childForm.pinEnabled,
-                ...(childForm.pinEnabled && { pin: childForm.pin }), // Only include pin if enabled
-                points: 0,
-                currentStreak: 0,
-                longestStreak: 0,
-                badges: [],
-                completedTasks: 0
-            };
+    setIsLoading(true);
+    try {
+      const childProfileId = `child_${Date.now()}`;
+      
+      const newProfile: ChildProfile = {
+        id: childProfileId,
+        name: childForm.name,
+        age: childForm.age,
+        avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${childForm.name}`,
+        pinEnabled: childForm.pinEnabled,
+        ...(childForm.pinEnabled && { pin: childForm.pin }),
+        points: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        badges: [],
+        completedTasks: 0
+      };
 
-            // Update user profile with new profile
-            const updatedProfiles = [...(userProfile.childProfiles || []), newProfile];
-            await updateUserProfile({ childProfiles: updatedProfiles });
+      // Create Firebase document for child profile
+      await setDoc(doc(db, COLLECTIONS.USERS, childProfileId), {
+        id: childProfileId,
+        email: `${childProfileId}@child.local`, // Placeholder email
+        displayName: childForm.name,
+        role: 'child',
+        avatar: newProfile.avatar,
+        createdAt: new Date(),
+        householdIds: userProfile.householdIds,
+        isActive: true,
+        points: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        badges: [],
+        completedTasks: 0,
+        joinedHouseholds: userProfile.joinedHouseholds,
+        parentId: currentUser.uid, // Link to parent
+        age: childForm.age,
+        pinEnabled: childForm.pinEnabled,
+        ...(childForm.pinEnabled && { pin: childForm.pin }),
+      });
 
-            setChildProfiles(updatedProfiles);
-            setShowAddChild(false);
-            setChildForm({ name: '', age: 5, pinEnabled: false, pin: '' });
-        } catch (error) {
-            console.error('Failed to add profile:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+      // Update parent's child profiles list
+      const updatedProfiles = [...(userProfile.childProfiles || []), newProfile];
+      await updateUserProfile({ childProfiles: updatedProfiles });
+
+      setChildProfiles(updatedProfiles);
+      setShowAddChild(false);
+      setChildForm({ name: '', age: 5, pinEnabled: false, pin: '' });
+    } catch (error) {
+      console.error('Failed to add profile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [profileToDelete, setProfileToDelete] = useState<ChildProfile | null>(null);

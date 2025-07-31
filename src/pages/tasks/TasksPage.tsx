@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
+import { ViewTaskModal } from '@/components/tasks/ViewTaskModal';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { TaskBoard } from '@/components/tasks/TaskBoard';
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal';
@@ -13,17 +14,19 @@ import { CreateTaskData } from '@/services/firebase/tasks.firebase.service';
 export function TasksPage() {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const { 
-    tasks, 
-    loading, 
-    error, 
-    createTask, 
-    updateTaskStatus, 
-    addPhotoProof 
+  const {
+    tasks,
+    loading,
+    error,
+    createTask,
+    updateTaskStatus,
+    addPhotoProof,
+    deleteTask
   } = useTasks();
-  
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [viewingTask, setViewingTask] = useState<Task | null>(null);
 
   const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
     try {
@@ -32,6 +35,18 @@ export function TasksPage() {
       console.error('Failed to update task status:', error);
       // You could show a toast notification here
     }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await deleteTask(taskId);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
+  };
+
+  const handleViewTask = (task: Task) => {
+    setViewingTask(task);
   };
 
   const handlePhotoUpload = async (taskId: string, photo: File) => {
@@ -79,7 +94,7 @@ export function TasksPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <p className="text-coral-accent mb-4">Error loading tasks: {error}</p>
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="px-4 py-2 bg-pastel-blue text-white rounded-lg"
             >
@@ -107,6 +122,8 @@ export function TasksPage() {
           tasks={tasks}
           onStatusChange={handleStatusChange}
           onPhotoUpload={handlePhotoUpload}
+          onDelete={handleDeleteTask}
+          onView={handleViewTask}
         />
       </div>
 
@@ -129,6 +146,15 @@ export function TasksPage() {
         onSubmit={handleCreateTask}
         editTask={editingTask}
       />
+
+      {/* View Task Modal */}
+      {viewingTask && (
+        <ViewTaskModal
+          isOpen={!!viewingTask}
+          onClose={() => setViewingTask(null)}
+          task={viewingTask}
+        />
+      )}
     </div>
   );
 }
