@@ -20,7 +20,22 @@ const navItems = [
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { userProfile } = useAuth();
-  
+
+  // Get current display name based on active profile
+  const getCurrentDisplayName = () => {
+    if (!userProfile) return '';
+    
+    if (userProfile.activeProfile === 'parent') {
+      return userProfile.displayName; // Original parent name
+    }
+    
+    // Find child profile
+    const childProfile = userProfile.childProfiles?.find(
+      child => child.id === userProfile.activeProfile
+    );
+    return childProfile?.name || userProfile.displayName;
+  };
+
   return (
     <>
       {/* Mobile overlay */}
@@ -97,11 +112,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="border-t border-light-gray p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-sunshine-yellow flex items-center justify-center text-white font-bold">
-                {userProfile?.displayName?.[0]?.toUpperCase() || 'U'}
+                {getCurrentDisplayName()?.[0]?.toUpperCase() || 'U'}
               </div>
               <div>
                 <p className="text-sm font-medium text-dark-slate">
-                  {userProfile?.displayName || 'User'}
+                  {getCurrentDisplayName() || 'User'}
                 </p>
                 <p className="text-xs text-medium-gray capitalize">
                   {userProfile?.role || 'Member'} Account

@@ -15,9 +15,23 @@ import { badgesService } from '@/services/badges.service';
 
 export function ChildDashboard() {
   const navigate = useNavigate();
-  const { userProfile } = useAuth();
+  const { userProfile} = useAuth();
   const [quests, setQuests] = useState<any[]>([]);
   const [userBadges, setUserBadges] = useState<any[]>([]);
+
+  const getCurrentDisplayName = () => {
+    if (!userProfile) return '';
+
+    if (userProfile.activeProfile === 'parent') {
+      return userProfile.displayName; // Original parent name
+    }
+
+    // Find child profile
+    const childProfile = userProfile.childProfiles?.find(
+      child => child.id === userProfile.activeProfile
+    );
+    return childProfile?.name || userProfile.displayName;
+  };
 
   useEffect(() => {
     // Mock quests data
@@ -60,7 +74,7 @@ export function ChildDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pastel-blue/20 via-light-gray to-mint-green/20 pb-20">
       <PageHeader
-        title={`Hi ${userProfile?.displayName || 'there'}! 🎮`}
+        title={`Hi ${getCurrentDisplayName() || 'there'}! 🎮`}
         showMenuButton={false}
       />
 

@@ -29,6 +29,7 @@ interface AuthContextType {
     updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
     clearError: () => void;
     refreshUserProfile: () => Promise<void>;
+    getCurrentDisplayName: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,19 +71,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Get current display name based on active profile
+// Get current display name based on active profile
     const getCurrentDisplayName = () => {
         if (!userProfile) return '';
         
         if (userProfile.activeProfile === 'parent') {
-            return userProfile.displayName; // Original parent name
+            return userProfile.displayName; // Original parent name from Firebase
         }
         
-        // Find child profile
+        // Find child profile name
         const childProfile = userProfile.childProfiles?.find(
             child => child.id === userProfile.activeProfile
         );
         return childProfile?.name || userProfile.displayName;
+    };
+
+    // Get current avatar based on active profile
+    const getCurrentAvatar = () => {
+        if (!userProfile) return '';
+        
+        if (userProfile.activeProfile === 'parent') {
+            return userProfile.avatar; // Original parent avatar
+        }
+        
+        // Find child profile avatar
+        const childProfile = userProfile.childProfiles?.find(
+            child => child.id === userProfile.activeProfile
+        );
+        return childProfile?.avatar || userProfile.avatar;
     };
 
     // Create user profile in Firestore
@@ -203,7 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Update user profile
+// Update user profile
     const updateUserProfile = async (data: Partial<UserProfile>) => {
         if (!currentUser || !userProfile) return;
 
@@ -211,24 +227,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('Updating user profile with:', data);
             const userRef = doc(db, COLLECTIONS.USERS, currentUser.uid);
             
-            // Create update data, but preserve original displayName for parent
-            const updateData = { ...data };
+            // Always save to Firestore
+            await setDoc(userRef, data, { merge: true });
             
-            // If switching to parent profile, restore original displayName
-            if (data.activeProfile === 'parent' && data.displayName && data.displayName !== userProfile.displayName) {
-                // Don't update displayName in Firebase for parent profile switches
-                delete updateData.displayName;
-                
-                // Update local state with original displayName
-                setUserProfile({ 
-                    ...userProfile, 
-                    ...updateData, 
-                    displayName: userProfile.displayName // Preserve original parent name
-                });
-            } else {
-                await setDoc(userRef, updateData, { merge: true });
-                setUserProfile({ ...userProfile, ...updateData });
-            }
+            // Update local state
+            setUserProfile({ ...userProfile, ...data });
             
             console.log('Profile updated successfully');
         } catch (err) {
@@ -258,7 +261,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return unsubscribe;
     }, []);
 
-    const value = {
+ const value = {
         currentUser,
         userProfile,
         loading,
@@ -272,6 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearError,
         refreshUserProfile,
         getCurrentDisplayName,
+        getCurrentAvatar,
     };
 
     return (

@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/Badge';
 import { FAB } from '@/components/layout/FAB';
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal';
 import { CreateRewardModal } from '@/components/rewards/CreateRewardModal';
+import { useTasks } from '@/hooks/useTasks';
 
 
 export function ParentDashboard() {
@@ -29,6 +30,7 @@ export function ParentDashboard() {
   const [weekDays, setWeekDays] = useState<any[]>([]);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showCreateRewardModal, setShowCreateRewardModal] = useState(false);
+  const { createTask } = useTasks(); // Add this line
 
 
   useEffect(() => {
@@ -221,9 +223,12 @@ export function ParentDashboard() {
         isOpen={showCreateTaskModal}
         onClose={() => setShowCreateTaskModal(false)}
         onSubmit={async (taskData) => {
-          // TODO: Implement task creation
-          console.log('Create task:', taskData);
-          setShowCreateTaskModal(false);
+          try {
+            await createTask(taskData);
+            setShowCreateTaskModal(false);
+          } catch (error) {
+            console.error('Failed to create task:', error);
+          }
         }}
       />
 

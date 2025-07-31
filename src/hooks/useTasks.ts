@@ -12,20 +12,35 @@ export function useTasks() {
 
   const householdId = userProfile?.householdIds?.[0];
 
-  // Subscribe to real-time task updates
+  // Subscribe to real-time task updates (SINGLE useEffect)
   useEffect(() => {
-    if (!householdId) {
+    if (!householdId || !userProfile) {
       setLoading(false);
       return;
     }
 
     console.log('Setting up tasks subscription for household:', householdId);
+    console.log('Current active profile:', userProfile.activeProfile);
 
     const unsubscribe = tasksService.subscribeToTasks(
       householdId,
       (updatedTasks) => {
-        console.log('Tasks updated:', updatedTasks.length);
-        setTasks(updatedTasks);
+        console.log('Raw tasks from Firebase:', updatedTasks.length);
+        
+        // Filter tasks based on active profile
+        let filteredTasks = updatedTasks;
+        
+        // If viewing as child profile, only show tasks assigned to that profile
+        if (userProfile.activeProfile && userProfile.activeProfile !== 'parent') {
+          filteredTasks = updatedTasks.filter(task => 
+            task.assignedTo.includes(userProfile.activeProfile!)
+          );
+          console.log('Filtered tasks for child:', filteredTasks.length);
+        } else {
+          console.log('Showing all tasks for parent');
+        }
+        
+        setTasks(filteredTasks);
         setLoading(false);
         setError(null);
       },
@@ -40,7 +55,7 @@ export function useTasks() {
       console.log('Unsubscribing from tasks');
       unsubscribe();
     };
-  }, [householdId]);
+  }, [householdId, userProfile?.activeProfile]); // Added activeProfile to dependencies
 
   // Create a new task
   const createTask = async (taskData: CreateTaskData): Promise<void> => {

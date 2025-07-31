@@ -99,15 +99,21 @@ const handleSubmit = (e: React.FormEvent) => {
     setFormData(prev => ({ ...prev, points }));
   };
 
-  // Get household members from user profile
+// Get household members from user profile
   const getHouseholdMembers = () => {
     const members: { id: string; name: string; role: 'parent' | 'child' }[] = [];
 
-    // Add the parent (current user)
+    // Add the parent with original name from Firebase (not current display name)
     if (userProfile) {
+      // Get original parent name by fetching from the user document
+      // For now, we'll use a fallback approach
+      const originalParentName = userProfile.displayName.includes(' ') 
+        ? userProfile.displayName 
+        : userProfile.email?.split('@')[0] || 'Parent';
+        
       members.push({
         id: 'parent',
-        name: userProfile.displayName,
+        name: originalParentName,
         role: 'parent'
       });
     }

@@ -60,8 +60,8 @@ const handleCreateHousehold = async () => {
       });
 
       // Refresh user profile to get updated household data
-      //await refreshUserProfile();
-      //console.log('Profile refreshed');
+      await refreshUserProfile();
+      console.log('Profile refreshed');
 
       // Navigate to next step
       navigate('/profiles');

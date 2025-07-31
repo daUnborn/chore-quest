@@ -14,7 +14,6 @@ import { TasksPage } from '@/pages/tasks/TasksPage';
 import { RewardsPage } from '@/pages/rewards/RewardsPage';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 
-// Dashboard router component - always show parent dashboard
 // Dashboard router component
 function DashboardRouter() {
   const { userProfile } = useAuth();
@@ -29,7 +28,6 @@ function DashboardRouter() {
   return <ChildDashboard />;
 }
 
-// Main router to determine user flow
 function MainRouter() {
   const { userProfile, loading, currentUser } = useAuth();
 
@@ -50,8 +48,13 @@ function MainRouter() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  // If household exists, go to profile selection
-  return <Navigate to="/profiles" replace />;
+  // If user has household but no active profile set, go to profile selection
+  if (!userProfile.activeProfile) {
+    return <Navigate to="/profiles" replace />;
+  }
+
+  // If user has both household and active profile, go to dashboard
+  return <Navigate to="/dashboard" replace />;
 }
 
 function App() {

@@ -53,6 +53,11 @@ export function ProfileSelectionPage() {
         }
     };
 
+    // Get the actual parent display name (original name, not active profile name)
+    const getParentDisplayName = () => {
+        return userProfile?.displayName || 'Parent';
+    };
+
     const handleParentLogin = async () => {
         // Check if parent has PIN protection
         if (userProfile?.parentPin) {
@@ -230,7 +235,7 @@ export function ProfileSelectionPage() {
                                 onClick={handleParentLogin}
                             >
                                 <UserCircle className="h-20 w-20 mx-auto mb-4 text-pastel-blue" />
-                                <h3 className="text-lg font-semibold mb-1">Parent</h3>
+                                <h3 className="text-lg font-semibold mb-1">{getParentDisplayName()}</h3>
                                 <p className="text-sm text-medium-gray">Manage family tasks</p>
                             </Card>
                         </motion.div>
