@@ -24,15 +24,13 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-
 interface TaskBoardProps {
   tasks: Task[];
-  onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onStatusChange: (taskId: string, newStatus: TaskStatus, completedBy?: string) => void;
   onPhotoUpload?: (taskId: string, photo: File) => void;
   onDelete?: (taskId: string) => void;
   onView?: (task: Task) => void;
 }
-
 interface FilterState {
   assignee: string | null;
   dueToday: boolean;
@@ -187,7 +185,19 @@ export function TaskBoard({ tasks, onStatusChange, onPhotoUpload, onDelete, onVi
       });
     }
     
-    onStatusChange(taskId, newStatus);
+    // Determine who should be credited for completion
+    const task = tasks.find(t => t.id === taskId);
+    let completedBy = userProfile?.activeProfile;
+    
+    // If parent is approving a task assigned to a child, credit the child
+    if (newStatus === 'done' && 
+        userProfile?.activeProfile === 'parent' && 
+        task?.assignedTo.length === 1 && 
+        task.assignedTo[0] !== 'parent') {
+      completedBy = task.assignedTo[0]; // Credit the assigned child
+    }
+    
+    onStatusChange(taskId, newStatus, completedBy);
   };
 
   // Apply filters

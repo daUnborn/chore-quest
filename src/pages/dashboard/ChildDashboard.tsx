@@ -12,65 +12,55 @@ import { Button } from '@/components/ui/Button'; // Added missing import
 import { Trophy, Zap, Target } from 'lucide-react';
 import { BadgeDisplay } from '@/components/badges/BadgeDisplay';
 import { badgesService } from '@/services/badges.service';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import { FamilyLeaderboard } from '@/components/dashboard/FamilyLeaderboard';
+import { RecentActivity } from '@/components/dashboard/RecentActivity';
 
 export function ChildDashboard() {
   const navigate = useNavigate();
-  const { userProfile} = useAuth();
-  const [quests, setQuests] = useState<any[]>([]);
+  const { userProfile, getCurrentDisplayName, getCurrentAvatar, currentUser } = useAuth();
+  const { stats, todaysQuests, familyLeaderboard, recentActivities, loading } = useDashboardData();
   const [userBadges, setUserBadges] = useState<any[]>([]);
-
-  const getCurrentDisplayName = () => {
-    if (!userProfile) return '';
-
-    if (userProfile.activeProfile === 'parent') {
-      return userProfile.displayName; // Original parent name
-    }
-
-    // Find child profile
-    const childProfile = userProfile.childProfiles?.find(
-      child => child.id === userProfile.activeProfile
-    );
-    return childProfile?.name || userProfile.displayName;
-  };
-
-  useEffect(() => {
-    // Mock quests data
-    setQuests([
-      { id: '1', title: 'Make your bed', points: 5, icon: '🛏️', completed: true, category: 'Morning' },
-      { id: '2', title: 'Brush teeth', points: 3, icon: '🦷', completed: true, category: 'Morning' },
-      { id: '3', title: 'Pack school bag', points: 5, icon: '🎒', completed: false, category: 'Morning' },
-      { id: '4', title: 'Do homework', points: 10, icon: '📚', completed: false, category: 'Afternoon' },
-      { id: '5', title: 'Tidy room', points: 8, icon: '🧹', completed: false, category: 'Evening' },
-    ]);
-  }, []);
 
   // Add useEffect to load badges with error handling:
   useEffect(() => {
     const loadBadges = async () => {
-      if (!userProfile?.uid) return;
+      if (!userProfile?.activeProfile) return;
 
       try {
-        const response = await badgesService.getUserBadges(userProfile.uid);
-        if (response.data) {
-          setUserBadges(response.data);
+        const activeUserId = userProfile.activeProfile === 'parent' ? currentUser?.uid : userProfile.activeProfile;
+        if (activeUserId) {
+          const response = await badgesService.getUserBadges(activeUserId);
+          if (response.data) {
+            setUserBadges(response.data);
+          }
         }
       } catch (error) {
         console.error('Failed to load badges:', error);
         // Set mock badges if service fails
         setUserBadges([
-          { id: '1', name: 'First Steps', icon: '🏃', description: 'Complete your first task' },
-          { id: '2', name: 'Star Helper', icon: '🌟', description: 'Help family members' },
-          { id: '3', name: 'Task Master', icon: '🎯', description: 'Complete 10 tasks' },
+          { id: '1', name: 'First Steps', iconUrl: '🏃', description: 'Complete your first task', tier: 'bronze', isSecret: false },
+          { id: '2', name: 'Star Helper', iconUrl: '🌟', description: 'Help family members', tier: 'silver', isSecret: false },
+          { id: '3', name: 'Task Master', iconUrl: '🎯', description: 'Complete 10 tasks', tier: 'gold', isSecret: false },
         ]);
       }
     };
 
     loadBadges();
-  }, [userProfile]);
+  }, [userProfile?.activeProfile, currentUser]);
 
-  const completedQuests = quests.filter(q => q.completed).length;
-  const progressPercentage = quests.length > 0 ? Math.round((completedQuests / quests.length) * 100) : 0;
+  const progressPercentage = todaysQuests.length > 0 ? Math.round((todaysQuests.filter(q => q.completed).length / todaysQuests.length) * 100) : 0;
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pastel-blue/20 via-light-gray to-mint-green/20 pb-20">
+        <PageHeader title={`Hi ${getCurrentDisplayName() || 'there'}! 🎮`} showMenuButton={false} />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pastel-blue"></div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-pastel-blue/20 via-light-gray to-mint-green/20 pb-20">
       <PageHeader
@@ -105,12 +95,12 @@ export function ChildDashboard() {
         >
           <Card className="p-3 text-center">
             <Trophy className="h-6 w-6 mx-auto mb-1 text-sunshine-yellow" />
-            <p className="text-2xl font-bold text-dark-slate">{userProfile?.points || 125}</p>
+            <p className="text-2xl font-bold text-dark-slate">{stats.totalPoints}</p>
             <p className="text-xs text-medium-gray">Points</p>
           </Card>
           <Card className="p-3 text-center">
             <Zap className="h-6 w-6 mx-auto mb-1 text-coral-accent" />
-            <p className="text-2xl font-bold text-dark-slate">{userProfile?.currentStreak || 3}</p>
+            <p className="text-2xl font-bold text-dark-slate">{stats.currentStreak}</p>
             <p className="text-xs text-medium-gray">Day Streak</p>
           </Card>
           <Card className="p-3 text-center">
@@ -127,9 +117,38 @@ export function ChildDashboard() {
           transition={{ delay: 0.3 }}
         >
           <AvatarWorld
-            currentStreak={userProfile?.currentStreak || 3}
+            currentStreak={stats.currentStreak}
             unlockedRooms={[]}
-            avatarUrl={userProfile?.avatar || ''}
+            avatarUrl={getCurrentAvatar()}
+          />
+        </motion.div>
+
+        {/* Daily Quests */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <DailyQuests
+            quests={todaysQuests}
+            onQuestClick={(questId) => navigate(`/tasks/${questId}`)}
+          />
+        </motion.div>
+
+        {/* Recent Activity & Family Leaderboard */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+        >
+          {/* Recent Activity - Shows first on mobile, left on desktop */}
+          <RecentActivity activities={recentActivities} />
+          
+          {/* Family Leaderboard - Shows second on mobile, right on desktop */}
+          <FamilyLeaderboard 
+            members={familyLeaderboard} 
+            currentUserId={userProfile?.activeProfile === 'parent' ? currentUser?.uid || 'parent' : userProfile?.activeProfile || ''}
           />
         </motion.div>
 

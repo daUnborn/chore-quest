@@ -45,7 +45,6 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload, onDelete, onView
             // Make photo optional - directly move to review
             onStatusChange(task.id, nextStatus);
             setIsAnimating(false);
-            // Optionally show a toast notification suggesting photo upload
             return;
         }
 
@@ -108,7 +107,7 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload, onDelete, onView
         const now = new Date();
         const dueDate = task.dueDate.toDate();
         const diffHours = Math.ceil((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60));
-        
+
         if (diffHours < 24) return `${diffHours}h overdue`;
         const diffDays = Math.ceil(diffHours / 24);
         return `${diffDays}d overdue`;

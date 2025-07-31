@@ -74,18 +74,20 @@ export function useTasks() {
   };
 
   // Update task status
- // Update task status
-  const updateTaskStatus = async (taskId: string, newStatus: TaskStatus): Promise<void> => {
+  const updateTaskStatus = async (taskId: string, newStatus: TaskStatus, completedBy?: string): Promise<void> => {
     try {
-      console.log('Updating task status:', taskId, newStatus);
-      const result = await tasksService.updateTaskStatus(taskId, newStatus, currentUser?.uid);
+      console.log('Updating task status:', taskId, newStatus, 'completed by:', completedBy);
       
-      // If task was completed and points were awarded, update streak
-      if (newStatus === 'done' && result.pointsAwarded && currentUser?.uid) {
+      // Use the passed completedBy or default to current user
+      const completerId = completedBy || currentUser?.uid;
+      const result = await tasksService.updateTaskStatus(taskId, newStatus, completerId);
+      
+      // If task was completed and points were awarded, update streak for the person who completed it
+      if (newStatus === 'done' && result.pointsAwarded && completerId) {
         try {
           const { streaksService } = await import('@/services/streaks.service');
-          await streaksService.updateUserStreak(currentUser.uid);
-          console.log('Streak updated after task completion');
+          await streaksService.updateUserStreak(completerId);
+          console.log('Streak updated after task completion for user:', completerId);
         } catch (streakError) {
           console.error('Error updating streak:', streakError);
           // Don't throw - points were still awarded

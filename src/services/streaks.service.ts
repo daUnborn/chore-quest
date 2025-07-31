@@ -1,6 +1,6 @@
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/firebase/collections';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 
 interface StreakData {
   currentStreak: number;
@@ -17,7 +17,25 @@ class StreaksService {
       const userDoc = await getDoc(userRef);
       
       if (!userDoc.exists()) {
-        throw new Error('User not found');
+        console.log(`User ${userId} not found, creating basic document`);
+        // Create a basic user document if it doesn't exist
+        await setDoc(userRef, {
+          id: userId,
+          points: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          completedTasks: 0,
+          streakHistory: [],
+          createdAt: new Date(),
+        });
+        
+        // Return initial streak data
+        return {
+          currentStreak: 1,
+          longestStreak: 1,
+          lastActiveDate: new Date(),
+          streakHistory: [new Date()]
+        };
       }
       
       const userData = userDoc.data();

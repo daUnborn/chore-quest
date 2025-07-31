@@ -24,17 +24,19 @@ import { CreateRewardModal } from '@/components/rewards/CreateRewardModal';
 import { useTasks } from '@/hooks/useTasks';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { FamilyLeaderboard } from '@/components/dashboard/FamilyLeaderboard';
+import { RecentActivity } from '@/components/dashboard/RecentActivity';
 
 
 export function ParentDashboard() {
   const navigate = useNavigate();
   const { userProfile, logout, getCurrentDisplayName, currentUser } = useAuth();
   const { createTask } = useTasks();
-  const { stats, familyLeaderboard, loading } = useDashboardData();
+  const { stats, familyLeaderboard, recentActivities, loading } = useDashboardData();
   const [weekDays, setWeekDays] = useState<any[]>([]);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showCreateRewardModal, setShowCreateRewardModal] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
+
 
 
   useEffect(() => {
@@ -171,57 +173,24 @@ export function ParentDashboard() {
           </Card>
         </motion.div>
 
-        {/* Recent Activity */}
+        {/* Recent Activity & Family Leaderboard */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-6"
         >
-          <Card className="p-4">
-            <h3 className="font-semibold text-dark-slate mb-3">Recent Activity</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-mint-green flex items-center justify-center">
-                    <CheckCircle className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Emma completed "Make bed"</p>
-                    <p className="text-xs text-medium-gray">5 minutes ago</p>
-                  </div>
-                </div>
-                <Badge variant="success" size="sm">+5 pts</Badge>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-sunshine-yellow flex items-center justify-center">
-                    <Trophy className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Jack earned "Week Warrior" badge</p>
-                    <p className="text-xs text-medium-gray">1 hour ago</p>
-                  </div>
-                </div>
-                <Badge variant="warning" size="sm">New!</Badge>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Family Leaderboard */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <FamilyLeaderboard
-            members={familyLeaderboard}
+          {/* Recent Activity - Shows first on mobile, left on desktop */}
+          <RecentActivity activities={recentActivities} />
+          
+          {/* Family Leaderboard - Shows second on mobile, right on desktop */}
+          <FamilyLeaderboard 
+            members={familyLeaderboard} 
             currentUserId={currentUser?.uid || 'parent'}
           />
         </motion.div>
 
-                {/* Temporary Logout Button */}
+        {/* Temporary Logout Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
