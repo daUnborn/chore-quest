@@ -70,6 +70,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // Get current display name based on active profile
+    const getCurrentDisplayName = () => {
+        if (!userProfile) return '';
+        
+        if (userProfile.activeProfile === 'parent') {
+            return userProfile.displayName; // Original parent name
+        }
+        
+        // Find child profile
+        const childProfile = userProfile.childProfiles?.find(
+            child => child.id === userProfile.activeProfile
+        );
+        return childProfile?.name || userProfile.displayName;
+    };
+
     // Create user profile in Firestore
     const createUserProfile = async (
         user: FirebaseUser,
@@ -195,8 +210,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             console.log('Updating user profile with:', data);
             const userRef = doc(db, COLLECTIONS.USERS, currentUser.uid);
-            await setDoc(userRef, { ...userProfile, ...data }, { merge: true });
-            setUserProfile({ ...userProfile, ...data });
+            
+            // Create update data, but preserve original displayName for parent
+            const updateData = { ...data };
+            
+            // If switching to parent profile, restore original displayName
+            if (data.activeProfile === 'parent' && data.displayName && data.displayName !== userProfile.displayName) {
+                // Don't update displayName in Firebase for parent profile switches
+                delete updateData.displayName;
+                
+                // Update local state with original displayName
+                setUserProfile({ 
+                    ...userProfile, 
+                    ...updateData, 
+                    displayName: userProfile.displayName // Preserve original parent name
+                });
+            } else {
+                await setDoc(userRef, updateData, { merge: true });
+                setUserProfile({ ...userProfile, ...updateData });
+            }
+            
             console.log('Profile updated successfully');
         } catch (err) {
             console.error('Failed to update profile:', err);
@@ -238,6 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateUserProfile,
         clearError,
         refreshUserProfile,
+        getCurrentDisplayName,
     };
 
     return (

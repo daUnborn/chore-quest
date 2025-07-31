@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, ClipboardList, Gift, Bell, Settings } from 'lucide-react';
+import { Home, ClipboardList, Gift, Bell, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 interface NavItem {
@@ -10,11 +10,11 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: '/', icon: Home, label: 'Home' },
+  { to: '/dashboard', icon: Home, label: 'Home' },
   { to: '/tasks', icon: ClipboardList, label: 'Tasks' },
   { to: '/rewards', icon: Gift, label: 'Rewards' },
   { to: '/notifications', icon: Bell, label: 'Alerts', badge: 3 },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/profiles', icon: UserCheck, label: 'Switch' },
 ];
 
 export function BottomNav() {

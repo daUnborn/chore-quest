@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, ClipboardList, Gift, Bell, Settings, X } from 'lucide-react';
+import { Home, ClipboardList, Gift, Bell, Settings, X, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +11,7 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: '/', icon: Home, label: 'Home' },
+  { to: '/dashboard', icon: Home, label: 'Home' },
   { to: '/tasks', icon: ClipboardList, label: 'Tasks' },
   { to: '/rewards', icon: Gift, label: 'Rewards' },
   { to: '/notifications', icon: Bell, label: 'Notifications' },
@@ -40,10 +40,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside
         className={cn(
           'fixed left-0 top-0 z-50 h-full w-64 bg-white shadow-lg',
-          'lg:z-30', // Lower z-index on desktop
           'transition-transform duration-300 ease-in-out',
+          // Mobile: toggleable sidebar
           isOpen ? 'translate-x-0' : '-translate-x-full',
-          'lg:translate-x-0' // Always visible on desktop
+          // Desktop: always visible, lower z-index
+          'lg:translate-x-0 lg:z-30'
         )}
       >
         <div className="flex h-full flex-col">
@@ -78,6 +79,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <span className="font-medium">{item.label}</span>
               </NavLink>
             ))}
+            
+            {/* Switch Profile Link */}
+            <div className="border-t border-light-gray pt-4 mt-4">
+              <NavLink
+                to="/profiles"
+                onClick={() => window.innerWidth < 1024 && onClose()}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-medium-gray transition-colors hover:bg-light-gray"
+              >
+                <UserCheck className="h-5 w-5" />
+                <span className="font-medium">Switch Profile</span>
+              </NavLink>
+            </div>
           </nav>
 
           {/* Footer */}

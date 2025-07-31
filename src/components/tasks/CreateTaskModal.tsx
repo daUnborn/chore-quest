@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (task: Partial<Task>) => void;
+  onSubmit: (task: any) => void; // Will match CreateTaskData from the service
   editTask?: Task | null;
   householdMembers?: { id: string; name: string; role: 'parent' | 'child' }[];
 }
@@ -26,7 +26,7 @@ export function CreateTaskModal({
   editTask,
   householdMembers = [],
 }: CreateTaskModalProps) {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -60,21 +60,30 @@ export function CreateTaskModal({
         isRecurring: false,
       });
     }
-  }, [editTask]);
+  }, [editTask, isOpen]); // Added isOpen to reset form when modal opens
 
-  const handleSubmit = (e: React.FormEvent) => {
+const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const taskData: Partial<Task> = {
-      ...formData,
-      dueDate: Timestamp.fromDate(new Date(formData.dueDate)),
-      status: editTask?.status || 'todo',
-      createdBy: editTask?.createdBy || currentUser?.uid || '',
-      createdAt: editTask?.createdAt || new Date(),
+
+    const taskData: any = {
+      title: formData.title,
+      description: formData.description,
+      assignedTo: formData.assignedTo,
+      dueDate: new Date(formData.dueDate),
+      points: formData.points,
+      category: formData.category,
+      isRecurring: formData.isRecurring,
     };
 
+    // Only add recurringPattern if isRecurring is true
+    if (formData.isRecurring) {
+      taskData.recurringPattern = {
+        frequency: 'daily' as const,
+        daysOfWeek: [],
+      };
+    }
+
     onSubmit(taskData);
-    onClose();
   };
 
   const toggleAssignee = (memberId: string) => {
@@ -90,14 +99,34 @@ export function CreateTaskModal({
     setFormData(prev => ({ ...prev, points }));
   };
 
-  // Mock household members for testing
-  const mockMembers = [
-    { id: 'emma', name: 'Emma', role: 'child' as const },
-    { id: 'jack', name: 'Jack', role: 'child' as const },
-    { id: 'parent', name: 'Parent', role: 'parent' as const },
-  ];
+  // Get household members from user profile
+  const getHouseholdMembers = () => {
+    const members: { id: string; name: string; role: 'parent' | 'child' }[] = [];
 
-  const members = householdMembers.length > 0 ? householdMembers : mockMembers;
+    // Add the parent (current user)
+    if (userProfile) {
+      members.push({
+        id: 'parent',
+        name: userProfile.displayName,
+        role: 'parent'
+      });
+    }
+
+    // Add child profiles
+    if (userProfile?.childProfiles) {
+      userProfile.childProfiles.forEach(child => {
+        members.push({
+          id: child.id,
+          name: child.name,
+          role: 'child'
+        });
+      });
+    }
+
+    return members;
+  };
+
+  const members = householdMembers.length > 0 ? householdMembers : getHouseholdMembers();
 
   return (
     <Modal
@@ -179,10 +208,17 @@ export function CreateTaskModal({
                   }`}
                 >
                   {member.name}
+                  {member.role === 'parent' && ' 👨‍👩‍👧‍👦'}
                   {member.role === 'child' && ' 🧒'}
                 </motion.button>
               ))}
             </div>
+
+            {members.length === 0 && (
+              <p className="text-sm text-medium-gray">
+                No family members found. Add profiles in the profile selection page.
+              </p>
+            )}
           </div>
 
           {/* Due Date & Recurring */}
@@ -195,7 +231,7 @@ export function CreateTaskModal({
               leftIcon={<Calendar className="h-4 w-4" />}
               required
             />
-            
+
             <div>
               <label className="block text-sm font-medium text-dark-slate mb-1">
                 Recurring Task

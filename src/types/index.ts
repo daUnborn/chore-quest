@@ -64,7 +64,7 @@ export interface HouseholdMembership {
 }
 
 // Task types
-export type TaskStatus = 'to-do' | 'in-progress' | 'review' | 'done' | 'archived';
+export type TaskStatus = 'todo' | 'in-progress' | 'review' | 'done' | 'archived';
 
 export interface Task {
   id: string;
@@ -74,7 +74,7 @@ export interface Task {
   assignedTo: string[];
   createdBy: string;
   createdAt: Date;
-  dueDate: Date;
+  dueDate: any; // Firebase Timestamp or Date
   points: number;
   status: TaskStatus;
   category?: string;

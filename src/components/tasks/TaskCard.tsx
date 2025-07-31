@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils/cn';
 import { Badge } from '@/components/ui/Badge';
 import { format } from 'date-fns';
 import { PhotoUploadModal } from './PhotoUploadModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TaskCardProps {
     task: Task;
@@ -14,6 +15,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps) {
+    const { userProfile } = useAuth();
     const [isAnimating, setIsAnimating] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
 
@@ -131,15 +133,30 @@ export function TaskCard({ task, onStatusChange, onPhotoUpload }: TaskCardProps)
                 {task.assignedTo.length > 0 && (
                     <div className="flex items-center gap-2 mb-3">
                         <div className="flex -space-x-2">
-                            {task.assignedTo.slice(0, 3).map((userId, index) => (
-                                <div
-                                    key={userId}
-                                    className="w-6 h-6 rounded-full bg-pastel-blue flex items-center justify-center text-white text-xs font-medium border-2 border-white"
-                                    style={{ zIndex: 3 - index }}
-                                >
-                                    {userId[0].toUpperCase()}
-                                </div>
-                            ))}
+                            {task.assignedTo.slice(0, 3).map((userId, index) => {
+                                // Get the actual name for the user ID
+                                const getAssigneeName = (id: string) => {
+                                    if (id === 'parent') {
+                                        return userProfile?.displayName || 'Parent';
+                                    }
+                                    // Find child profile
+                                    const childProfile = userProfile?.childProfiles?.find(child => child.id === id);
+                                    return childProfile?.name || id;
+                                };
+
+                                const assigneeName = getAssigneeName(userId);
+
+                                return (
+                                    <div
+                                        key={userId}
+                                        className="w-6 h-6 rounded-full bg-pastel-blue flex items-center justify-center text-white text-xs font-medium border-2 border-white"
+                                        style={{ zIndex: 3 - index }}
+                                        title={assigneeName} // Tooltip showing full name
+                                    >
+                                        {assigneeName[0].toUpperCase()}
+                                    </div>
+                                );
+                            })}
                         </div>
                         {task.assignedTo.length > 3 && (
                             <span className="text-xs text-medium-gray">

@@ -9,11 +9,11 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Default open on desktop
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed on mobile
 
   return (
     <div className="min-h-screen bg-light-gray">
-      {/* Sidebar - controlled by state */}
+      {/* Sidebar - toggleable on mobile, always visible on desktop */}
       <Sidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -23,13 +23,13 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Main content */}
       <div className={cn(
         'min-h-screen transition-all duration-300',
-        isSidebarOpen ? 'lg:ml-64' : 'lg:ml-0',
-        'pb-16 lg:pb-0'
+        'lg:ml-64', // Always leave space for sidebar on desktop
+        'pb-16 lg:pb-0' // Bottom padding for mobile nav only
       )}>
         {children || <Outlet />}
       </div>
 
-      {/* Bottom navigation for mobile - visible on all pages */}
+      {/* Bottom navigation - mobile and tablet only */}
       <BottomNav />
     </div>
   );

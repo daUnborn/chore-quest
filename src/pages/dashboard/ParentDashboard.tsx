@@ -25,7 +25,7 @@ import { CreateRewardModal } from '@/components/rewards/CreateRewardModal';
 
 export function ParentDashboard() {
   const navigate = useNavigate();
-  const { userProfile } = useAuth();
+  const { userProfile, logout } = useAuth();
   const [weekDays, setWeekDays] = useState<any[]>([]);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [showCreateRewardModal, setShowCreateRewardModal] = useState(false);
@@ -186,6 +186,30 @@ export function ParentDashboard() {
                 <Badge variant="warning" size="sm">New!</Badge>
               </div>
             </div>
+          </Card>
+        </motion.div>
+
+        {/* Temporary Logout Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+        >
+          <Card className="p-4">
+            <Button
+              variant="danger"
+              onClick={async () => {
+                try {
+                  await logout();
+                  navigate('/login');
+                } catch (error) {
+                  console.error('Logout failed:', error);
+                }
+              }}
+              fullWidth
+            >
+              Logout (Temporary)
+            </Button>
           </Card>
         </motion.div>
       </div>

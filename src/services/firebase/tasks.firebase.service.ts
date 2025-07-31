@@ -1,10 +1,11 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDocs, 
-  query, 
-  where, 
+// src/services/firebase/tasks.firebase.service.ts
+import {
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  query,
+  where,
   orderBy,
   updateDoc,
   onSnapshot,
@@ -57,7 +58,7 @@ class TasksService {
         orderBy('status'),
         orderBy('createdAt', 'desc')
       );
-      
+
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({
         id: doc.id,
@@ -71,7 +72,7 @@ class TasksService {
 
   // Subscribe to real-time task updates
   subscribeToTasks(
-    householdId: string, 
+    householdId: string,
     callback: (tasks: Task[]) => void,
     onError?: (error: Error) => void
   ): Unsubscribe {
@@ -84,7 +85,7 @@ class TasksService {
         orderBy('createdAt', 'desc')
       );
 
-      return onSnapshot(q, 
+      return onSnapshot(q,
         (snapshot) => {
           const tasks = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -100,16 +101,17 @@ class TasksService {
     } catch (error) {
       console.error('Error setting up tasks subscription:', error);
       onError?.(new Error('Failed to set up real-time updates'));
-      return () => {}; // Return empty unsubscribe function
+      return () => { }; // Return empty unsubscribe function
     }
   }
 
   // Create a new task
+  // Create a new task
   async createTask(householdId: string, createdBy: string, taskData: CreateTaskData): Promise<Task> {
     try {
       const docRef = doc(collection(db, COLLECTIONS.TASKS));
-      
-      const newTask: Omit<Task, 'id'> = {
+
+      const newTask: any = {
         householdId,
         title: taskData.title,
         description: taskData.description,
@@ -121,11 +123,22 @@ class TasksService {
         status: 'todo',
         category: taskData.category,
         isRecurring: taskData.isRecurring,
-        recurringPattern: taskData.recurringPattern,
       };
 
+      // Only add recurringPattern if it exists and isRecurring is true
+      if (taskData.isRecurring && taskData.recurringPattern) {
+        newTask.recurringPattern = taskData.recurringPattern;
+      }
+
+      // Remove any undefined values
+      Object.keys(newTask).forEach(key => {
+        if (newTask[key] === undefined) {
+          delete newTask[key];
+        }
+      });
+
       await setDoc(docRef, newTask);
-      
+
       return {
         id: docRef.id,
         ...newTask
@@ -140,9 +153,9 @@ class TasksService {
   async updateTask(taskId: string, updates: UpdateTaskData): Promise<void> {
     try {
       const taskRef = doc(db, COLLECTIONS.TASKS, taskId);
-      
+
       const updateData: any = { ...updates };
-      
+
       // Convert Date to Timestamp for Firestore
       if (updates.dueDate) {
         updateData.dueDate = Timestamp.fromDate(updates.dueDate);
@@ -157,8 +170,8 @@ class TasksService {
 
   // Update task status (common operation)
   async updateTaskStatus(
-    taskId: string, 
-    newStatus: TaskStatus, 
+    taskId: string,
+    newStatus: TaskStatus,
     completedBy?: string
   ): Promise<void> {
     try {
@@ -228,7 +241,7 @@ class TasksService {
         orderBy('status'),
         orderBy('dueDate', 'asc')
       );
-      
+
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({
         id: doc.id,
@@ -256,7 +269,7 @@ class TasksService {
         where('status', '!=', 'archived'),
         orderBy('dueDate', 'asc')
       );
-      
+
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({
         id: doc.id,

@@ -6,122 +6,90 @@ import { TaskBoard } from '@/components/tasks/TaskBoard';
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal';
 import { FAB } from '@/components/layout/FAB';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskStatus } from '@/types';
-import { Timestamp } from 'firebase/firestore';
-
-// Mock data for testing
-const mockTasks: Task[] = [
-  {
-    id: '1',
-    householdId: 'household1',
-    title: 'Make bed',
-    assignedTo: ['Emma'],
-    createdBy: 'parent1',
-    createdAt: new Date(),
-    dueDate: Timestamp.fromDate(new Date()),
-    points: 5,
-    status: 'todo',
-    category: 'morning',
-    isRecurring: false,
-  },
-  {
-    id: '2',
-    householdId: 'household1',
-    title: 'Do homework',
-    assignedTo: ['Jack'],
-    createdBy: 'parent1',
-    createdAt: new Date(),
-    dueDate: Timestamp.fromDate(new Date()),
-    points: 10,
-    status: 'in-progress',
-    category: 'homework',
-    isRecurring: false,
-  },
-  {
-    id: '3',
-    householdId: 'household1',
-    title: 'Clean room',
-    assignedTo: ['Emma', 'Jack'],
-    createdBy: 'parent1',
-    createdAt: new Date(),
-    dueDate: Timestamp.fromDate(new Date()),
-    points: 8,
-    status: 'review',
-    category: 'chores',
-    isRecurring: false,
-    photoProofUrl: 'https://example.com/photo.jpg',
-  },
-];
+import { CreateTaskData } from '@/services/firebase/tasks.firebase.service';
 
 export function TasksPage() {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const { 
+    tasks, 
+    loading, 
+    error, 
+    createTask, 
+    updateTaskStatus, 
+    addPhotoProof 
+  } = useTasks();
+  
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId
-          ? { 
-              ...task, 
-              status: newStatus,
-              ...(newStatus === 'done' ? { completedAt: new Date() } : {})
-            }
-          : task
-      )
-    );
-  };
-
-  const handlePhotoUpload = (taskId: string, photo: File) => {
-    // In real app, upload to Firebase Storage
-    console.log('Photo upload for task:', taskId, photo);
-    
-    // For now, just update the task with a mock URL
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId
-          ? { ...task, photoProofUrl: URL.createObjectURL(photo) }
-          : task
-      )
-    );
-  };
-
-  const handleCreateTask = (taskData: Partial<Task>) => {
-    const newTask: Task = {
-      id: Date.now().toString(),
-      householdId: userProfile?.householdIds[0] || 'household1',
-      title: taskData.title!,
-      description: taskData.description,
-      assignedTo: taskData.assignedTo!,
-      createdBy: taskData.createdBy!,
-      createdAt: new Date(),
-      dueDate: taskData.dueDate!,
-      points: taskData.points!,
-      status: 'todo',
-      category: taskData.category,
-      isRecurring: taskData.isRecurring!,
-    };
-
-    if (editingTask) {
-      // Update existing task
-      setTasks(prevTasks =>
-        prevTasks.map(task =>
-          task.id === editingTask.id
-            ? { ...task, ...taskData }
-            : task
-        )
-      );
-    } else {
-      // Add new task
-      setTasks(prevTasks => [...prevTasks, newTask]);
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await updateTaskStatus(taskId, newStatus);
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+      // You could show a toast notification here
     }
-
-    setEditingTask(null);
   };
 
-  const isParent = userProfile?.role === 'parent';
+  const handlePhotoUpload = async (taskId: string, photo: File) => {
+    try {
+      // For now, create a mock URL - we'll implement Firebase Storage later
+      const photoUrl = URL.createObjectURL(photo);
+      await addPhotoProof(taskId, photoUrl);
+      console.log('Photo uploaded for task:', taskId);
+    } catch (error) {
+      console.error('Failed to upload photo:', error);
+      // You could show a toast notification here
+    }
+  };
+
+  const handleCreateTask = async (taskData: CreateTaskData) => {
+    try {
+      await createTask(taskData);
+      setShowCreateModal(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      // You could show a toast notification here
+    }
+  };
+
+  const isParent = userProfile?.activeProfile === 'parent' || userProfile?.role === 'parent';
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-light-gray pb-20">
+        <PageHeader title="Task Board" />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pastel-blue"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-light-gray pb-20">
+        <PageHeader title="Task Board" />
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-coral-accent mb-4">Error loading tasks: {error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-pastel-blue text-white rounded-lg"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-light-gray pb-20">

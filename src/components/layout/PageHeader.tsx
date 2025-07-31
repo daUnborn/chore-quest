@@ -48,7 +48,7 @@ export function PageHeader({
             variant="ghost"
             size="sm"
             onClick={toggleSidebar}
-            className="-ml-2"
+            className="-ml-2 lg:hidden" // Only show on mobile
           >
             <Menu className="h-6 w-6" />
           </Button>

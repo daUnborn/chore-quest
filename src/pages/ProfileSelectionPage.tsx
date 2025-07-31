@@ -86,44 +86,42 @@ export function ProfileSelectionPage() {
         }
     };
 
-const handlePinSubmit = async () => {
-    let correctPin = '';
-    let isParentLogin = false;
+    const handlePinSubmit = async () => {
+        let correctPin = '';
+        let isParentLogin = false;
 
-    if (selectedChild) {
-      // Child profile login
-      correctPin = selectedChild.pin || '';
-    } else {
-      // Parent profile login
-      correctPin = userProfile?.parentPin || '';
-      isParentLogin = true;
-    }
+        if (selectedChild) {
+            // Child profile login
+            correctPin = selectedChild.pin || '';
+        } else {
+            // Parent profile login
+            correctPin = userProfile?.parentPin || '';
+            isParentLogin = true;
+        }
 
-    if (pin === correctPin) {
-      setShowPinPrompt(false);
-      if (isParentLogin) {
-        await updateUserProfile({ 
-          activeProfile: 'parent',
-          role: 'parent'
-        });
-        navigate('/dashboard');
-      } else {
-        await loginAsChild(selectedChild!);
-      }
-    } else {
-      setPinError('Incorrect PIN. Try again.');
-      setPin('');
-    }
-  };
+        if (pin === correctPin) {
+            setShowPinPrompt(false);
+            if (isParentLogin) {
+                await updateUserProfile({
+                    activeProfile: 'parent',
+                    role: 'parent'
+                });
+                navigate('/dashboard');
+            } else {
+                await loginAsChild(selectedChild!);
+            }
+        } else {
+            setPinError('Incorrect PIN. Try again.');
+            setPin('');
+        }
+    };
 
     const loginAsChild = async (child: ChildProfile) => {
         try {
-            // Update user profile to track active child
+            // Update user profile to track active child (don't change displayName permanently)
             await updateUserProfile({
                 activeProfile: child.id,
-                role: 'child',
-                displayName: child.name,
-                avatar: child.avatar
+                role: 'child'
             });
             navigate('/dashboard');
         } catch (error) {
@@ -143,7 +141,7 @@ const handlePinSubmit = async () => {
                 age: childForm.age,
                 avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${childForm.name}`,
                 pinEnabled: childForm.pinEnabled,
-                pin: childForm.pinEnabled ? childForm.pin : undefined,
+                ...(childForm.pinEnabled && { pin: childForm.pin }), // Only include pin if enabled
                 points: 0,
                 currentStreak: 0,
                 longestStreak: 0,
@@ -163,10 +161,6 @@ const handlePinSubmit = async () => {
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const navigateToHouseholdSetup = () => {
-        navigate('/onboarding');
     };
 
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -207,29 +201,6 @@ const handlePinSubmit = async () => {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
                     <p className="text-white mt-4">Loading profiles...</p>
                 </div>
-            </div>
-        );
-    }
-
-    // If no household, redirect to household setup
-    if (!userProfile?.householdIds?.length) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-pastel-blue via-light-gray to-mint-green flex items-center justify-center p-4">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="w-full max-w-md"
-                >
-                    <Card className="p-6 text-center">
-                        <h2 className="text-2xl font-bold mb-4">Welcome to Chore Quest!</h2>
-                        <p className="text-medium-gray mb-6">
-                            Let's set up your family household first.
-                        </p>
-                        <Button onClick={navigateToHouseholdSetup} fullWidth size="lg">
-                            Set Up Household
-                        </Button>
-                    </Card>
-                </motion.div>
             </div>
         );
     }
@@ -319,17 +290,6 @@ const handlePinSubmit = async () => {
                         </motion.div>
                     </div>
 
-                    {/* Settings Link */}
-                    <div className="text-center mt-6">
-                        <Button
-                            variant="ghost"
-                            onClick={() => navigate('/household-settings')}
-                            className="text-white hover:bg-white/10"
-                            leftIcon={<Settings className="h-4 w-4" />}
-                        >
-                            Household Settings
-                        </Button>
-                    </div>
                 </motion.div>
             </div>
 
@@ -352,8 +312,8 @@ const handlePinSubmit = async () => {
                     <Input
                         label="Age"
                         type="number"
-                        min="3"
-                        max="18"
+                        min="2"
+                        max="100"
                         value={childForm.age}
                         onChange={(e) => setChildForm({ ...childForm, age: parseInt(e.target.value) })}
                         required
