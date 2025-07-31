@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +8,7 @@ import { AvatarWorld } from '@/components/dashboard/AvatarWorld';
 import { DailyQuests } from '@/components/dashboard/DailyQuests';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button'; // Added missing import
+import { Button } from '@/components/ui/Button';
 import { Trophy, Zap, Target } from 'lucide-react';
 import { BadgeDisplay } from '@/components/badges/BadgeDisplay';
 import { badgesService } from '@/services/badges.service';
@@ -16,13 +16,45 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 import { FamilyLeaderboard } from '@/components/dashboard/FamilyLeaderboard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 
+interface UserBadge {
+  id: string;
+  name: string;
+  iconUrl: string;
+  description: string;
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  isSecret: boolean;
+  earnedAt?: Date;
+}
+
 export function ChildDashboard() {
   const navigate = useNavigate();
   const { userProfile, getCurrentDisplayName, getCurrentAvatar, currentUser } = useAuth();
   const { stats, todaysQuests, familyLeaderboard, recentActivities, loading } = useDashboardData();
-  const [userBadges, setUserBadges] = useState<any[]>([]);
+  const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
 
-  // Add useEffect to load badges with error handling:
+  // Calculate unlocked rooms based on current streak
+  const unlockedRooms = useMemo(() => {
+    const unlocked = ['bedroom']; // Always unlocked
+    if (stats.currentStreak >= 3) unlocked.push('playroom');
+    if (stats.currentStreak >= 7) unlocked.push('treehouse');
+    if (stats.currentStreak >= 14) unlocked.push('garden');
+    if (stats.currentStreak >= 30) unlocked.push('castle');
+    return unlocked;
+  }, [stats.currentStreak]);
+
+  // Calculate recent badges (earned within last 7 days)
+  const recentBadges = useMemo(() => {
+    const now = new Date();
+    return userBadges
+      .filter(badge => {
+        if (!badge.earnedAt) return false;
+        const daysSince = (now.getTime() - badge.earnedAt.getTime()) / (1000 * 60 * 60 * 24);
+        return daysSince <= 7;
+      })
+      .sort((a, b) => (b.earnedAt?.getTime() || 0) - (a.earnedAt?.getTime() || 0))
+      .slice(0, 3);
+  }, [userBadges]);
+
   useEffect(() => {
     const loadBadges = async () => {
       if (!userProfile?.activeProfile) return;
@@ -37,12 +69,37 @@ export function ChildDashboard() {
         }
       } catch (error) {
         console.error('Failed to load badges:', error);
-        // Set mock badges if service fails
-        setUserBadges([
-          { id: '1', name: 'First Steps', iconUrl: '🏃', description: 'Complete your first task', tier: 'bronze', isSecret: false },
-          { id: '2', name: 'Star Helper', iconUrl: '🌟', description: 'Help family members', tier: 'silver', isSecret: false },
-          { id: '3', name: 'Task Master', iconUrl: '🎯', description: 'Complete 10 tasks', tier: 'gold', isSecret: false },
-        ]);
+        // Set mock badges with timestamps for demo
+        const mockBadges: UserBadge[] = [
+          { 
+            id: '1', 
+            name: 'First Steps', 
+            iconUrl: '🏃', 
+            description: 'Complete your first task', 
+            tier: 'bronze', 
+            isSecret: false,
+            earnedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) // 2 days ago
+          },
+          { 
+            id: '2', 
+            name: 'Star Helper', 
+            iconUrl: '🌟', 
+            description: 'Help family members', 
+            tier: 'silver', 
+            isSecret: false,
+            earnedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) // 5 days ago
+          },
+          { 
+            id: '3', 
+            name: 'Task Master', 
+            iconUrl: '🎯', 
+            description: 'Complete 10 tasks', 
+            tier: 'gold', 
+            isSecret: false,
+            earnedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) // 10 days ago (not recent)
+          },
+        ];
+        setUserBadges(mockBadges);
       }
     };
 
@@ -51,21 +108,31 @@ export function ChildDashboard() {
 
   const progressPercentage = todaysQuests.length > 0 ? Math.round((todaysQuests.filter(q => q.completed).length / todaysQuests.length) * 100) : 0;
 
+  const handleQuestClick = (questId: string) => {
+    // Navigate to tasks page instead of specific quest
+    navigate('/tasks');
+  };
+
+  const handleViewAllBadges = () => {
+    navigate('/badges');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pastel-blue/20 via-light-gray to-mint-green/20 pb-20">
-        <PageHeader title={`Hi ${getCurrentDisplayName() || 'there'}! 🎮`} showMenuButton={false} />
+        <PageHeader title={`Hi ${getCurrentDisplayName() || 'there'}! 🎮`} showMenuButton={true} />
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pastel-blue"></div>
         </div>
       </div>
     );
   }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-pastel-blue/20 via-light-gray to-mint-green/20 pb-20">
       <PageHeader
         title={`Hi ${getCurrentDisplayName() || 'there'}! 🎮`}
-        showMenuButton={false}
+        showMenuButton={true}
       />
 
       <div className="p-4 space-y-6">
@@ -110,7 +177,7 @@ export function ChildDashboard() {
           </Card>
         </motion.div>
 
-        {/* Avatar World */}
+        {/* Avatar World - Now with proper unlocked rooms */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -118,8 +185,8 @@ export function ChildDashboard() {
         >
           <AvatarWorld
             currentStreak={stats.currentStreak}
-            unlockedRooms={[]}
-            avatarUrl={getCurrentAvatar()}
+            unlockedRooms={unlockedRooms}
+            avatarUrl={getCurrentAvatar() || `https://api.dicebear.com/7.x/adventurer/svg?seed=${getCurrentDisplayName()}`}
           />
         </motion.div>
 
@@ -131,7 +198,7 @@ export function ChildDashboard() {
         >
           <DailyQuests
             quests={todaysQuests}
-            onQuestClick={(questId) => navigate(`/tasks/${questId}`)}
+            onQuestClick={handleQuestClick}
           />
         </motion.div>
 
@@ -139,50 +206,42 @@ export function ChildDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
+          transition={{ delay: 0.5 }}
           className="grid grid-cols-1 lg:grid-cols-2 gap-6"
         >
-          {/* Recent Activity - Shows first on mobile, left on desktop */}
           <RecentActivity activities={recentActivities} />
-          
-          {/* Family Leaderboard - Shows second on mobile, right on desktop */}
           <FamilyLeaderboard 
             members={familyLeaderboard} 
             currentUserId={userProfile?.activeProfile === 'parent' ? currentUser?.uid || 'parent' : userProfile?.activeProfile || ''}
           />
         </motion.div>
 
-        {/* Daily Quests */}
+        {/* Recent Achievements - Now shows actual recent badges */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <DailyQuests
-            quests={quests}
-            onQuestClick={(questId) => navigate(`/tasks/${questId}`)}
-          />
-        </motion.div>
-
-        {/* Recent Achievements */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.6 }}
         >
           <Card className="p-4">
             <h3 className="font-semibold text-dark-slate mb-3">Recent Achievements</h3>
             <div className="flex gap-2 flex-wrap">
-              <Badge variant="warning" className="text-sm">
-                🏃 First Steps
-              </Badge>
-              <Badge variant="success" className="text-sm">
-                🌟 Star Helper
-              </Badge>
-              <Badge variant="primary" className="text-sm">
-                🎯 Task Master
-              </Badge>
+              {recentBadges.length > 0 ? (
+                recentBadges.map((badge) => (
+                  <Badge key={badge.id} variant="success" className="text-sm">
+                    {badge.iconUrl} {badge.name}
+                  </Badge>
+                ))
+              ) : (
+                <p className="text-sm text-medium-gray">
+                  Complete tasks to earn your first badge! 🎯
+                </p>
+              )}
             </div>
+            {recentBadges.length > 0 && (
+              <p className="text-xs text-medium-gray mt-2">
+                🎉 Earned in the last 7 days
+              </p>
+            )}
           </Card>
         </motion.div>
 
@@ -190,7 +249,7 @@ export function ChildDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.7 }}
         >
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
@@ -198,7 +257,7 @@ export function ChildDashboard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/badges')}
+                onClick={handleViewAllBadges}
               >
                 View All
               </Button>

@@ -4,7 +4,7 @@ import { Upload, Package, X } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils/cn'; // Added missing import
+import { cn } from '@/lib/utils/cn';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Updated Reward interface to match what we're using
@@ -55,17 +55,30 @@ export function CreateRewardModal({ isOpen, onClose, onSubmit }: CreateRewardMod
     setIsLoading(true);
 
     try {
-      await onSubmit({
+      // Build the reward data object, excluding undefined values
+      const rewardData: any = {
         householdId: userProfile?.householdIds?.[0] || 'default-household',
-        title: formData.title,
-        description: formData.description,
+        title: formData.title.trim(),
         cost: formData.cost,
         category: formData.category,
         imageUrl: formData.imageUrl,
-        stock: formData.hasStock ? formData.stock : undefined,
         isActive: true,
         createdBy: userProfile?.uid || 'unknown',
-      });
+      };
+
+      // Only add description if it has content
+      if (formData.description && formData.description.trim()) {
+        rewardData.description = formData.description.trim();
+      }
+
+      // Only add stock if hasStock is enabled and stock has a value
+      if (formData.hasStock && formData.stock && formData.stock > 0) {
+        rewardData.stock = formData.stock;
+      }
+
+      console.log('Submitting reward data:', rewardData);
+
+      await onSubmit(rewardData);
       
       // Reset form
       setFormData({
@@ -173,34 +186,44 @@ export function CreateRewardModal({ isOpen, onClose, onSubmit }: CreateRewardMod
             </div>
           </div>
 
-          {/* Cost */}
+          {/* Cost - IMPROVED SECTION */}
           <div>
             <label className="block text-sm font-medium text-dark-slate mb-2">
               Point Cost
             </label>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex gap-1">
-                {[25, 50, 75, 100].map((points) => (
+            <div className="space-y-3">
+              {/* Quick Set Buttons */}
+              <div className="flex gap-2 flex-wrap">
+                {[25, 50, 75, 100, 150, 200].map((points) => (
                   <Button
                     key={points}
                     type="button"
                     variant={formData.cost === points ? 'primary' : 'outline'}
                     size="sm"
                     onClick={() => quickSetCost(points)}
-                    className="text-xs px-2 py-1"
+                    className="text-xs px-3 py-1"
                   >
                     {points}
                   </Button>
                 ))}
               </div>
-              <Input
-                type="number"
-                value={formData.cost}
-                onChange={(e) => setFormData({ ...formData, cost: parseInt(e.target.value) || 0 })}
-                className="w-16 text-sm"
-                min="1"
-                max="1000"
-              />
+              
+              {/* Custom Input - Made wider */}
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-medium-gray whitespace-nowrap">
+                  Custom amount:
+                </label>
+                <Input
+                  type="number"
+                  value={formData.cost}
+                  onChange={(e) => setFormData({ ...formData, cost: parseInt(e.target.value) || 0 })}
+                  className="flex-1 min-w-[200px]"
+                  min="1"
+                  max="1000"
+                  placeholder="Enter points..."
+                />
+                <span className="text-sm text-medium-gray">points</span>
+              </div>
             </div>
           </div>
 

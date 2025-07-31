@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, ShoppingCart, Check, Package } from 'lucide-react';
+import { Lock, ShoppingCart, Check, Package, Loader2 } from 'lucide-react';
 import { Reward } from '@/types';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/Button';
@@ -27,7 +27,7 @@ export function RewardCard({
   const [showSuccess, setShowSuccess] = useState(false);
   
   const canAfford = userPoints >= reward.cost;
-  const isParent = userProfile?.role === 'parent';
+  const isParent = userProfile?.role === 'parent' || userProfile?.activeProfile === 'parent';
   
   // Calculate remaining stock
   const getRemainingStock = () => {
@@ -40,7 +40,7 @@ export function RewardCard({
   const isOutOfStock = remainingStock !== null && remainingStock <= 0;
 
   const handleClaim = async () => {
-    if (!canAfford || isOutOfStock || isClaimed) return;
+    if (!canAfford || isOutOfStock || isClaimed || isLoading) return;
     
     setIsLoading(true);
     try {
@@ -163,16 +163,28 @@ export function RewardCard({
                   disabled={!canAfford || isOutOfStock || isLoading}
                   isLoading={isLoading}
                   leftIcon={
+                    isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> :
                     !canAfford ? <Lock className="h-4 w-4" /> : 
                     <ShoppingCart className="h-4 w-4" />
                   }
                 >
-                  {!canAfford ? 'Locked' : isOutOfStock ? 'Out of Stock' : 'Claim'}
+                  {isLoading ? 'Claiming...' :
+                   !canAfford ? 'Locked' : 
+                   isOutOfStock ? 'Out of Stock' : 'Claim'}
                 </Button>
               )}
             </div>
           )}
         </div>
+
+        {/* Show claimed date if claimed */}
+        {isClaimed && (
+          <div className="mt-2 text-center">
+            <p className="text-xs text-medium-gray">
+              Claimed {new Date().toLocaleDateString()}
+            </p>
+          </div>
+        )}
       </div>
     </motion.div>
   );

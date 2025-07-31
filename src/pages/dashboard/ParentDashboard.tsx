@@ -22,6 +22,7 @@ import { FAB } from '@/components/layout/FAB';
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal';
 import { CreateRewardModal } from '@/components/rewards/CreateRewardModal';
 import { useTasks } from '@/hooks/useTasks';
+import { useRewards } from '@/hooks/useRewards';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { FamilyLeaderboard } from '@/components/dashboard/FamilyLeaderboard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
@@ -31,6 +32,7 @@ export function ParentDashboard() {
   const navigate = useNavigate();
   const { userProfile, logout, getCurrentDisplayName, currentUser } = useAuth();
   const { createTask } = useTasks();
+  const { createReward } = useRewards();
   const { stats, familyLeaderboard, recentActivities, loading } = useDashboardData();
   const [weekDays, setWeekDays] = useState<any[]>([]);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
@@ -54,6 +56,15 @@ export function ParentDashboard() {
     }
     setWeekDays(week);
   }, []);
+
+  const handleCreateReward = async (rewardData: any) => {
+    try {
+      await createReward(rewardData);
+      setShowCreateRewardModal(false);
+    } catch (error) {
+      console.error('Failed to create reward:', error);
+    }
+  };
 
   const kpiData = [
     {
@@ -235,11 +246,7 @@ export function ParentDashboard() {
       <CreateRewardModal
         isOpen={showCreateRewardModal}
         onClose={() => setShowCreateRewardModal(false)}
-        onSubmit={async (rewardData) => {
-          // TODO: Implement reward creation
-          console.log('Create reward:', rewardData);
-          setShowCreateRewardModal(false);
-        }}
+        onSubmit={handleCreateReward}
       />
     </div>
   );

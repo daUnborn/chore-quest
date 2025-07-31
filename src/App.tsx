@@ -9,9 +9,10 @@ import { ProfileSelectionPage } from '@/pages/ProfileSelectionPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ParentDashboard } from '@/pages/dashboard/ParentDashboard';
 import { ChildDashboard } from '@/pages/dashboard/ChildDashboard';
-import { useAuth } from '@/contexts/AuthContext';
 import { TasksPage } from '@/pages/tasks/TasksPage';
 import { RewardsPage } from '@/pages/rewards/RewardsPage';
+import { BadgesPage } from '@/pages/BadgesPage'; // New badges page
+import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 
 // Dashboard router component
@@ -127,6 +128,18 @@ function App() {
                 <ProtectedRoute>
                   <AppLayout>
                     <RewardsPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* New badges route */}
+            <Route
+              path="/badges"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <BadgesPage />
                   </AppLayout>
                 </ProtectedRoute>
               }

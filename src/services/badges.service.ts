@@ -11,8 +11,12 @@ interface UserBadgeProgress {
   earnedAt?: Date;
 }
 
+interface UserBadge extends Badge {
+  earnedAt: Date;
+}
+
 class BadgesService extends BaseService {
-  private userBadges: Map<string, string[]> = new Map();
+  private userBadges: Map<string, UserBadge[]> = new Map();
 
   // Check and award badges based on user stats
   async checkAndAwardBadges(
@@ -22,16 +26,17 @@ class BadgesService extends BaseService {
       currentStreak: number;
       lifetimePoints: number;
     }
-  ): Promise<ServiceResponse<Badge[]>> {
+  ): Promise<ServiceResponse<UserBadge[]>> {
     return this.handleError(async () => {
-      const earnedBadges: Badge[] = [];
-      const userBadgeIds = this.userBadges.get(userId) || [];
+      const earnedBadges: UserBadge[] = [];
+      const userBadgeList = this.userBadges.get(userId) || [];
+      const earnedBadgeIds = userBadgeList.map(b => b.id);
 
       for (const badgeDef of BADGE_DEFINITIONS) {
         const badgeId = this.generateBadgeId(badgeDef);
         
         // Skip if already earned
-        if (userBadgeIds.includes(badgeId)) continue;
+        if (earnedBadgeIds.includes(badgeId)) continue;
 
         let earned = false;
 
@@ -47,25 +52,49 @@ class BadgesService extends BaseService {
             break;
           case 'special':
             // Special badges need custom logic
-            earned = false; // Will implement special conditions later
+            earned = this.checkSpecialBadge(badgeDef, stats);
             break;
         }
 
         if (earned) {
-          const badge: Badge = {
+          const newBadge: UserBadge = {
             ...badgeDef,
             id: badgeId,
+            earnedAt: new Date(),
           };
-          earnedBadges.push(badge);
-          userBadgeIds.push(badgeId);
+          earnedBadges.push(newBadge);
+          userBadgeList.push(newBadge);
         }
       }
 
       // Update user's badges
-      this.userBadges.set(userId, userBadgeIds);
+      this.userBadges.set(userId, userBadgeList);
 
       return earnedBadges;
     });
+  }
+
+  // Check special badge conditions
+  private checkSpecialBadge(
+    badgeDef: Omit<Badge, 'id'>,
+    stats: { completedTasks: number; currentStreak: number; lifetimePoints: number }
+  ): boolean {
+    const condition = badgeDef.requirement.metadata?.condition;
+    
+    switch (condition) {
+      case 'morning-tasks':
+        // This would require checking if tasks were completed before 8 AM
+        // For now, just check if they have completed tasks
+        return stats.completedTasks >= 5;
+      case 'night-tasks':
+        // This would require checking if tasks were completed after 9 PM
+        return stats.completedTasks >= 3;
+      case 'perfect-week':
+        // This would require checking if all tasks were completed for 7 consecutive days
+        return stats.currentStreak >= 7 && stats.completedTasks >= 21; // Assuming 3 tasks per day
+      default:
+        return false;
+    }
   }
 
   // Get user's badge progress
@@ -78,12 +107,14 @@ class BadgesService extends BaseService {
     }
   ): Promise<ServiceResponse<UserBadgeProgress[]>> {
     return this.handleError(async () => {
-      const userBadgeIds = this.userBadges.get(userId) || [];
+      const userBadgeList = this.userBadges.get(userId) || [];
+      const earnedBadgeIds = userBadgeList.map(b => b.id);
       const progress: UserBadgeProgress[] = [];
 
       for (const badgeDef of BADGE_DEFINITIONS) {
         const badgeId = this.generateBadgeId(badgeDef);
-        const earned = userBadgeIds.includes(badgeId);
+        const earned = earnedBadgeIds.includes(badgeId);
+        const earnedBadge = userBadgeList.find(b => b.id === badgeId);
 
         let currentProgress = 0;
         const required = badgeDef.requirement.value;
@@ -98,6 +129,10 @@ class BadgesService extends BaseService {
           case 'points-earned':
             currentProgress = Math.min(stats.lifetimePoints, required);
             break;
+          case 'special':
+            // For special badges, show binary progress (0 or required)
+            currentProgress = this.checkSpecialBadge(badgeDef, stats) ? required : 0;
+            break;
         }
 
         progress.push({
@@ -106,6 +141,7 @@ class BadgesService extends BaseService {
           required,
           percentage: Math.round((currentProgress / required) * 100),
           earned,
+          earnedAt: earnedBadge?.earnedAt,
         });
       }
 
@@ -124,16 +160,71 @@ class BadgesService extends BaseService {
   }
 
   // Get user's earned badges
-  async getUserBadges(userId: string): Promise<ServiceResponse<Badge[]>> {
+  async getUserBadges(userId: string): Promise<ServiceResponse<UserBadge[]>> {
     return this.handleError(async () => {
-      const userBadgeIds = this.userBadges.get(userId) || [];
+      // Return existing badges or initialize with some starter badges for demo
+      const existingBadges = this.userBadges.get(userId);
       
-      return BADGE_DEFINITIONS
-        .filter(def => userBadgeIds.includes(this.generateBadgeId(def)))
-        .map(def => ({
-          ...def,
-          id: this.generateBadgeId(def),
-        }));
+      if (existingBadges && existingBadges.length > 0) {
+        return existingBadges;
+      }
+
+      // Initialize with some demo badges if user has none
+      const demoBadges: UserBadge[] = [
+        {
+          id: 'first-steps',
+          name: 'First Steps',
+          description: 'Complete your first task',
+          iconUrl: '🏃',
+          requirement: { type: 'tasks-completed', value: 1 },
+          tier: 'bronze',
+          isSecret: false,
+          earnedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        },
+        {
+          id: 'star-helper',
+          name: 'Star Helper',
+          description: 'Help family members by completing 5 tasks',
+          iconUrl: '🌟',
+          requirement: { type: 'tasks-completed', value: 5 },
+          tier: 'silver',
+          isSecret: false,
+          earnedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        },
+      ];
+
+      // Only return demo badges for demo purposes
+      this.userBadges.set(userId, demoBadges);
+      return demoBadges;
+    });
+  }
+
+  // Award a specific badge to a user (for manual awarding)
+  async awardBadge(userId: string, badgeId: string): Promise<ServiceResponse<UserBadge>> {
+    return this.handleError(async () => {
+      const badgeDef = BADGE_DEFINITIONS.find(def => this.generateBadgeId(def) === badgeId);
+      
+      if (!badgeDef) {
+        throw new Error('Badge not found');
+      }
+
+      const userBadgeList = this.userBadges.get(userId) || [];
+      
+      // Check if already earned
+      if (userBadgeList.some(b => b.id === badgeId)) {
+        throw new Error('Badge already earned');
+      }
+
+      const newBadge: UserBadge = {
+        ...badgeDef,
+        id: badgeId,
+        earnedAt: new Date(),
+      };
+
+      userBadgeList.push(newBadge);
+      this.userBadges.set(userId, userBadgeList);
+
+      return newBadge;
     });
   }
 
