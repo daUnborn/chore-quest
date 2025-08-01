@@ -114,6 +114,11 @@ export interface ClaimRecord {
   userId: string;
   claimedAt: Date;
   redeemedAt?: Date;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvedAt?: Date;
+  rejectionReason?: string;
+  canReclaimAfter?: Date;
 }
 
 // Notification types

@@ -18,7 +18,7 @@ export function useRewards() {
   const activeUserId = userProfile?.activeProfile === 'parent' ? currentUser?.uid : userProfile?.activeProfile;
   const isParent = userProfile?.role === 'parent' || userProfile?.activeProfile === 'parent';
 
-  // Calculate user points
+  // Calculate user points with real-time updates
   const calculateUserPoints = useCallback((): number => {
     if (!userProfile) {
       console.log('No user profile found');
@@ -52,7 +52,7 @@ export function useRewards() {
     setUserPoints(points);
   }, [calculateUserPoints]);
 
-  // Subscribe to real-time reward updates
+  // Subscribe to real-time reward updates with proper parent/child filtering
   useEffect(() => {
     if (!householdId) {
       setLoading(false);
@@ -60,14 +60,19 @@ export function useRewards() {
     }
 
     console.log('Setting up rewards subscription for household:', householdId);
+    console.log('Is parent:', isParent);
 
     const unsubscribe = rewardsService.subscribeToRewards(
       householdId,
+      isParent, // Include inactive rewards for parents only
       (updatedRewards) => {
         console.log('Rewards updated:', updatedRewards.length);
         setRewards(updatedRewards);
         setLoading(false);
         setError(null);
+        
+        // Trigger user profile refresh to sync points
+        refreshUserProfile();
       },
       (error) => {
         console.error('Rewards subscription error:', error);
@@ -80,7 +85,7 @@ export function useRewards() {
       console.log('Unsubscribing from rewards');
       unsubscribe();
     };
-  }, [householdId]);
+  }, [householdId, isParent, refreshUserProfile]);
 
   // Load user's claimed rewards and all claimed rewards for parents
   useEffect(() => {
@@ -206,6 +211,61 @@ export function useRewards() {
     }
   };
 
+  // Approve a claimed reward with real-time updates
+  const approveReward = async (rewardId: string, claimUserId: string): Promise<void> => {
+    if (!currentUser) {
+      throw new Error('No user found');
+    }
+
+    try {
+      console.log('Approving reward:', rewardId, 'for user:', claimUserId);
+      await rewardsService.approveClaimedReward(rewardId, claimUserId, currentUser.uid);
+      
+      // Refresh claimed rewards to show updated status
+      if (householdId) {
+        const updatedAllClaimed = await rewardsService.getAllClaimedRewards(householdId);
+        setAllClaimedRewards(updatedAllClaimed);
+      }
+      
+      console.log('Reward approved successfully');
+    } catch (error) {
+      console.error('Error approving reward:', error);
+      throw error;
+    }
+  };
+
+  // Reject a claimed reward with real-time updates
+  const rejectReward = async (rewardId: string, claimUserId: string): Promise<void> => {
+    if (!currentUser) {
+      throw new Error('No user found');
+    }
+
+    try {
+      console.log('Rejecting reward:', rewardId, 'for user:', claimUserId);
+      await rewardsService.rejectClaimedReward(rewardId, claimUserId, currentUser.uid);
+      
+      // Refresh claimed rewards to remove rejected claim
+      if (householdId) {
+        const updatedAllClaimed = await rewardsService.getAllClaimedRewards(householdId);
+        setAllClaimedRewards(updatedAllClaimed);
+        
+        // Also refresh user claimed rewards if the rejected user is active
+        if (activeUserId === claimUserId) {
+          const updatedUserClaimed = await rewardsService.getUserClaimedRewards(householdId, activeUserId);
+          setUserClaimedRewards(updatedUserClaimed);
+        }
+      }
+      
+      // Refresh user profile to update points
+      await refreshUserProfile();
+      
+      console.log('Reward rejected successfully');
+    } catch (error) {
+      console.error('Error rejecting reward:', error);
+      throw error;
+    }
+  };
+
   // Update reward
   const updateReward = async (rewardId: string, updates: Partial<CreateRewardData>): Promise<void> => {
     try {
@@ -258,7 +318,7 @@ export function useRewards() {
     if (!reward) return false;
     
     const userClaim = reward.claimedBy.find(claim => claim.userId === activeUserId);
-    return userClaim ? !!userClaim.redeemedAt : false;
+    return userClaim ? userClaim.approvalStatus === 'approved' : false;
   };
 
   // Get recent reward claims for activity feed
@@ -284,8 +344,10 @@ export function useRewards() {
     createReward,
     claimReward,
     updateReward,
-    pauseReward, // Add this
+    pauseReward,
     deleteReward,
+    approveReward,
+    rejectReward,
     userPoints,
     hasClaimedReward,
     isRewardRedeemed,

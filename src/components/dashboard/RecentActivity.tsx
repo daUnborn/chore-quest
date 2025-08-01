@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle, Trophy, Award, Clock } from 'lucide-react';
+import { CheckCircle, Trophy, Award, Clock, Gift } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatDistanceToNow } from 'date-fns';
@@ -21,15 +21,17 @@ interface RecentActivityProps {
 
 export function RecentActivity({ activities }: RecentActivityProps) {
   const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'task_completed':
-        return <CheckCircle className="h-4 w-4 text-mint-green" />;
-      case 'badge_earned':
-        return <Award className="h-4 w-4 text-sunshine-yellow" />;
-      case 'streak_milestone':
-        return <Trophy className="h-4 w-4 text-coral-accent" />;
-      default:
-        return <Clock className="h-4 w-4 text-medium-gray" />;
+  switch (type) {
+    case 'task_completed':
+      return <CheckCircle className="h-4 w-4 text-mint-green" />;
+    case 'badge_earned':
+      return <Award className="h-4 w-4 text-sunshine-yellow" />;
+    case 'streak_milestone':
+      return <Trophy className="h-4 w-4 text-coral-accent" />;
+    case 'reward_claimed':
+      return <Gift className="h-4 w-4 text-lavender-accent" />;
+    default:
+      return <Clock className="h-4 w-4 text-medium-gray" />;
     }
   };
 
@@ -41,6 +43,8 @@ export function RecentActivity({ activities }: RecentActivityProps) {
         return 'bg-sunshine-yellow';
       case 'streak_milestone':
         return 'bg-coral-accent';
+      case 'reward_claimed':
+        return 'bg-lavender-accent';
       default:
         return 'bg-medium-gray';
     }
@@ -78,6 +82,8 @@ export function RecentActivity({ activities }: RecentActivityProps) {
                 <div>
                   <p className="text-sm font-medium text-dark-slate">
                     <span className="font-semibold">{activity.memberName}</span> {activity.title}
+                    {activity.type === 'streak_milestone' && ' 🎉'}
+                    {activity.type === 'badge_earned' && ' ⭐'}
                   </p>
                   <p className="text-xs text-medium-gray">
                     {formatDistanceToNow(activity.timestamp, { addSuffix: true })}

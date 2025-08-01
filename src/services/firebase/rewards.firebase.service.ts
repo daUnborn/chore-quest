@@ -42,15 +42,28 @@ export interface ClaimedRewardWithUser extends Reward {
 }
 
 class RewardsService {
-  // Get all active rewards for a household
-  async getRewards(householdId: string): Promise<Reward[]> {
+
+  // Get all rewards for a household (parents see all, children only see active)
+  async getRewards(householdId: string, includeInactive: boolean = false): Promise<Reward[]> {
     try {
-      const q = query(
-        collection(db, COLLECTIONS.REWARDS),
-        where('householdId', '==', householdId),
-        where('isActive', '==', true),
-        orderBy('createdAt', 'desc')
-      );
+      let q;
+
+      if (includeInactive) {
+        // Parents see all rewards (active and paused)
+        q = query(
+          collection(db, COLLECTIONS.REWARDS),
+          where('householdId', '==', householdId),
+          orderBy('createdAt', 'desc')
+        );
+      } else {
+        // Children only see active rewards
+        q = query(
+          collection(db, COLLECTIONS.REWARDS),
+          where('householdId', '==', householdId),
+          where('isActive', '==', true),
+          orderBy('createdAt', 'desc')
+        );
+      }
 
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({
@@ -66,16 +79,29 @@ class RewardsService {
   // Subscribe to real-time reward updates
   subscribeToRewards(
     householdId: string,
+    includeInactive: boolean = false,
     callback: (rewards: Reward[]) => void,
     onError?: (error: Error) => void
   ): Unsubscribe {
     try {
-      const q = query(
-        collection(db, COLLECTIONS.REWARDS),
-        where('householdId', '==', householdId),
-        where('isActive', '==', true),
-        orderBy('createdAt', 'desc')
-      );
+      let q;
+
+      if (includeInactive) {
+        // Parents see all rewards
+        q = query(
+          collection(db, COLLECTIONS.REWARDS),
+          where('householdId', '==', householdId),
+          orderBy('createdAt', 'desc')
+        );
+      } else {
+        // Children only see active rewards
+        q = query(
+          collection(db, COLLECTIONS.REWARDS),
+          where('householdId', '==', householdId),
+          where('isActive', '==', true),
+          orderBy('createdAt', 'desc')
+        );
+      }
 
       return onSnapshot(q,
         (snapshot) => {
@@ -139,83 +165,84 @@ class RewardsService {
   }
 
   // Claim a reward (spend points) - UPDATED to return user's new points
-  async claimReward(rewardId: string, claimData: ClaimRewardData): Promise<{ 
-    success: boolean; 
-    message: string; 
+  async claimReward(rewardId: string, claimData: ClaimRewardData): Promise<{
+    success: boolean;
+    message: string;
     newUserPoints?: number;
     claimRecord?: ClaimRecord & { userName: string; userAvatar?: string };
   }> {
     try {
       const rewardRef = doc(db, COLLECTIONS.REWARDS, rewardId);
       const rewardDoc = await getDoc(rewardRef);
-      
+
       if (!rewardDoc.exists()) {
         throw new Error('Reward not found');
       }
-      
+
       const reward = { id: rewardDoc.id, ...rewardDoc.data() } as Reward;
-      
+
       // Check if reward is available
       if (!reward.isActive) {
         return { success: false, message: 'Reward is no longer available' };
       }
-      
+
       // Get user's current points
       const userRef = doc(db, COLLECTIONS.USERS, claimData.userId);
       const userDoc = await getDoc(userRef);
-      
+
       if (!userDoc.exists()) {
         throw new Error('User not found');
       }
-      
+
       const userData = userDoc.data();
       const currentPoints = userData.points || 0;
-      
+
       // Check if user has enough points
       if (currentPoints < reward.cost) {
-        return { 
-          success: false, 
-          message: `Not enough points. You need ${reward.cost - currentPoints} more points.` 
+        return {
+          success: false,
+          message: `Not enough points. You need ${reward.cost - currentPoints} more points.`
         };
       }
-      
+
       const newUserPoints = currentPoints - reward.cost;
-      
+
       // Create enhanced claim record with user info
       const claimRecord: ClaimRecord & { userName: string; userAvatar?: string } = {
         userId: claimData.userId,
         userName: claimData.userName,
         userAvatar: claimData.userAvatar,
         claimedAt: Timestamp.now(),
+        approvalStatus: 'pending',
       };
-      
+
       // Update reward with claim
       await updateDoc(rewardRef, {
         claimedBy: arrayUnion(claimRecord)
       });
-      
+
       // Deduct points from user
       await updateDoc(userRef, {
         points: newUserPoints,
         lastRewardClaimedAt: new Date(),
       });
-      
+
       // If this is a child profile, also update parent's childProfiles array
       if (userData.parentId) {
         await this.updateParentChildProfile(userData.parentId, claimData.userId, {
           points: newUserPoints,
         });
       }
-      
+
       console.log(`Reward claimed: ${reward.title} by ${claimData.userName} for ${reward.cost} points`);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         message: `Successfully claimed "${reward.title}" for ${reward.cost} points!`,
         newUserPoints,
         claimRecord
       };
-      
+
     } catch (error) {
       console.error('Error claiming reward:', error);
       throw new Error('Failed to claim reward');
@@ -236,7 +263,7 @@ class RewardsService {
 
       snapshot.docs.forEach(doc => {
         const reward = { id: doc.id, ...doc.data() } as Reward;
-        
+
         // For each claim, create a separate entry
         reward.claimedBy.forEach(claim => {
           claimedRewards.push({
@@ -248,10 +275,10 @@ class RewardsService {
 
       // Sort by claim date (most recent first)
       return claimedRewards.sort((a, b) => {
-        const aTime = a.claimInfo.claimedAt instanceof Date 
+        const aTime = a.claimInfo.claimedAt instanceof Date
           ? a.claimInfo.claimedAt.getTime()
           : a.claimInfo.claimedAt.toDate().getTime();
-        const bTime = b.claimInfo.claimedAt instanceof Date 
+        const bTime = b.claimInfo.claimedAt instanceof Date
           ? b.claimInfo.claimedAt.getTime()
           : b.claimInfo.claimedAt.toDate().getTime();
         return bTime - aTime;
@@ -267,19 +294,19 @@ class RewardsService {
     try {
       const parentRef = doc(db, COLLECTIONS.USERS, parentId);
       const parentDoc = await getDoc(parentRef);
-      
+
       if (parentDoc.exists()) {
         const parentData = parentDoc.data();
         const childProfiles = parentData.childProfiles || [];
-        
-        const updatedProfiles = childProfiles.map((child: any) => 
+
+        const updatedProfiles = childProfiles.map((child: any) =>
           child.id === childId ? { ...child, ...updates } : child
         );
-        
+
         await updateDoc(parentRef, {
           childProfiles: updatedProfiles
         });
-        
+
         console.log(`Updated child profile ${childId} in parent ${parentId}`);
       }
     } catch (error) {
@@ -298,7 +325,7 @@ class RewardsService {
 
       const snapshot = await getDocs(q);
       const allRewards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reward));
-      
+
       // Return all rewards, but mark which ones the user has claimed
       return allRewards.map(reward => ({
         ...reward,
@@ -325,10 +352,10 @@ class RewardsService {
   async updateReward(rewardId: string, updates: Partial<CreateRewardData>): Promise<void> {
     try {
       const rewardRef = doc(db, COLLECTIONS.REWARDS, rewardId);
-      
+
       // Clean the updates object to remove undefined values
       const cleanUpdates: any = {};
-      
+
       Object.entries(updates).forEach(([key, value]) => {
         if (value !== undefined) {
           if (key === 'description' && typeof value === 'string' && value.trim()) {
@@ -351,18 +378,18 @@ class RewardsService {
     try {
       const rewardRef = doc(db, COLLECTIONS.REWARDS, rewardId);
       const rewardDoc = await getDoc(rewardRef);
-      
+
       if (!rewardDoc.exists()) {
         throw new Error('Reward not found');
       }
-      
+
       const currentStatus = rewardDoc.data().isActive;
-      await updateDoc(rewardRef, { 
+      await updateDoc(rewardRef, {
         isActive: !currentStatus,
         pausedAt: !currentStatus ? null : new Date(),
         resumedAt: currentStatus ? null : new Date()
       });
-      
+
       console.log(`Reward ${currentStatus ? 'paused' : 'resumed'}: ${rewardId}`);
     } catch (error) {
       console.error('Error pausing/resuming reward:', error);
@@ -391,6 +418,95 @@ class RewardsService {
       default: return '🎁';
     }
   }
+
+  // Approve a claimed reward
+  async approveClaimedReward(rewardId: string, claimUserId: string, approvedBy: string): Promise<void> {
+    try {
+      const rewardRef = doc(db, COLLECTIONS.REWARDS, rewardId);
+      const rewardDoc = await getDoc(rewardRef);
+
+      if (!rewardDoc.exists()) {
+        throw new Error('Reward not found');
+      }
+
+      const reward = rewardDoc.data() as Reward;
+      const updatedClaims = reward.claimedBy.map(claim =>
+        claim.userId === claimUserId
+          ? {
+            ...claim,
+            approvalStatus: 'approved' as const,
+            approvedBy,
+            approvedAt: new Date(),
+            redeemedAt: new Date() // Mark as redeemed when approved
+          }
+          : claim
+      );
+
+      await updateDoc(rewardRef, { claimedBy: updatedClaims });
+      console.log(`Reward approved: ${rewardId} for user ${claimUserId}`);
+    } catch (error) {
+      console.error('Error approving reward:', error);
+      throw new Error('Failed to approve reward');
+    }
+  }
+
+  /// Reject a claimed reward and refund points (keep claim visible with rejected status)
+async rejectClaimedReward(rewardId: string, claimUserId: string, approvedBy: string, reason?: string): Promise<void> {
+  try {
+    const rewardRef = doc(db, COLLECTIONS.REWARDS, rewardId);
+    const rewardDoc = await getDoc(rewardRef);
+    
+    if (!rewardDoc.exists()) {
+      throw new Error('Reward not found');
+    }
+    
+    const reward = rewardDoc.data() as Reward;
+    
+    // UPDATE the claim record instead of removing it (keep it visible)
+    const updatedClaims = reward.claimedBy.map(claim => 
+      claim.userId === claimUserId 
+        ? { 
+            ...claim, 
+            approvalStatus: 'rejected' as const,
+            approvedBy,
+            approvedAt: new Date(),
+            rejectionReason: reason,
+            canReclaimAfter: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hour cooldown
+          }
+        : claim
+    );
+    
+    // Keep the claim in the array - just update its status
+    await updateDoc(rewardRef, {
+      claimedBy: updatedClaims
+    });
+    
+    // Refund points to user
+    const userRef = doc(db, COLLECTIONS.USERS, claimUserId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const currentPoints = userData.points || 0;
+      
+      await updateDoc(userRef, {
+        points: currentPoints + reward.cost
+      });
+      
+      // If this is a child profile, also update parent's childProfiles array
+      if (userData.parentId) {
+        await this.updateParentChildProfile(userData.parentId, claimUserId, {
+          points: currentPoints + reward.cost,
+        });
+      }
+    }
+    
+    console.log(`Reward rejected (but kept visible): ${rewardId} for user ${claimUserId}`);
+  } catch (error) {
+    console.error('Error rejecting reward:', error);
+    throw new Error('Failed to reject reward');
+  }
+}
 }
 
 export const rewardsService = new RewardsService();

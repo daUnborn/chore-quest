@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, ShoppingCart, Check, Package, Loader2, MoreVertical, Pause, Play, Trash2 } from 'lucide-react';
+import { Lock, ShoppingCart, Check, Package, Loader2, MoreVertical, Pause, Play, Trash2, Clock } from 'lucide-react';
 import { Reward } from '@/types';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/Button';
@@ -13,9 +13,17 @@ interface RewardCardProps {
   onClaim: (rewardId: string) => Promise<void>;
   isClaimed?: boolean;
   isRedeemed?: boolean;
-  isParent?: boolean; // Add this
-  onPause?: (rewardId: string) => Promise<void>; // Add this
-  onDelete?: (rewardId: string) => Promise<void>; // Add this
+  showActions?: boolean;
+  activeTab?: 'shop' | 'inventory' | 'claimed';
+  claimerName?: string;
+  claimerAvatar?: string;
+  claimTimestamp?: any; // For displaying claimed date
+  claimUserId?: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  onPause?: (rewardId: string) => Promise<void>;
+  onDelete?: (rewardId: string) => Promise<void>;
+  onApprove?: (rewardId: string, claimUserId: string) => Promise<void>;
+  onReject?: (rewardId: string, claimUserId: string) => Promise<void>;
 }
 
 export function RewardCard({
@@ -24,14 +32,24 @@ export function RewardCard({
   onClaim,
   isClaimed = false,
   isRedeemed = false,
-  //isParent = false,
+  showActions = false,
+  activeTab = 'shop',
+  claimerName,
+  claimerAvatar,
+  claimTimestamp,
+  claimUserId,
+  approvalStatus = 'pending',
   onPause,
-  onDelete
+  onDelete,
+  onApprove,
+  onReject
 }: RewardCardProps) {
   const { userProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [showMenu, setShowMenu] = useState(false); // Add this
+  const [showMenu, setShowMenu] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const canAfford = userPoints >= reward.cost;
   const isParent = userProfile?.role === 'parent' || userProfile?.activeProfile === 'parent';
@@ -82,8 +100,9 @@ export function RewardCard({
     <motion.div
       whileHover={{ y: -4 }}
       className={cn(
-        'bg-white rounded-2xl shadow-card overflow-hidden transition-all',
-        isOutOfStock && 'opacity-60'
+        'bg-white rounded-2xl shadow-card overflow-hidden transition-all relative',
+        isOutOfStock && 'opacity-60',
+        !reward.isActive && activeTab === 'shop' && 'opacity-75' // Only dim in shop tab
       )}
     >
       {/* Image/Icon Section */}
@@ -92,17 +111,27 @@ export function RewardCard({
         getCategoryColor()
       )}>
         {reward.imageUrl?.startsWith('http') ? (
-          <img 
-            src={reward.imageUrl} 
+          <img
+            src={reward.imageUrl}
             alt={reward.title}
             className="h-full w-full object-cover"
           />
         ) : (
           <span>{reward.imageUrl || getCategoryIcon()}</span>
         )}
-        
-        {/* Parent Menu */}
-        {isParent && (
+
+        {/* Paused Overlay - Only show in shop tab */}
+        {!reward.isActive && activeTab === 'shop' && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+            <div className="bg-white/90 rounded-full px-3 py-1 flex items-center gap-2 shadow-sm">
+              <Pause className="h-4 w-4 text-medium-gray" />
+              <span className="text-sm font-medium text-dark-slate">Paused</span>
+            </div>
+          </div>
+        )}
+
+        {/* Parent Menu - Only show in shop tab */}
+        {isParent && showActions && activeTab === 'shop' && (
           <div className="absolute top-2 right-2">
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -110,7 +139,7 @@ export function RewardCard({
             >
               <MoreVertical className="h-4 w-4" />
             </button>
-            
+
             {showMenu && (
               <div className="absolute right-0 top-8 bg-white border border-light-gray rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
                 <button
@@ -146,6 +175,22 @@ export function RewardCard({
             )}
           </div>
         )}
+
+        {/* Claimer Info - Only show in claimed tab, positioned at top-left */}
+        {activeTab === 'claimed' && claimerName && (
+          <div className="absolute top-2 left-2 bg-white/90 rounded-full px-3 py-1 flex items-center gap-2 shadow-sm">
+            {claimerAvatar && (
+              <img
+                src={claimerAvatar}
+                alt={claimerName}
+                className="w-5 h-5 rounded-full"
+              />
+            )}
+            <span className="text-xs font-medium text-dark-slate">
+              {claimerName}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -156,8 +201,8 @@ export function RewardCard({
             {reward.title}
           </h3>
           <div className="flex items-center gap-2">
-            <Badge 
-              variant={reward.category === 'virtual' ? 'primary' : 'success'} 
+            <Badge
+              variant={reward.category === 'virtual' ? 'primary' : 'success'}
               size="sm"
             >
               {reward.category}
@@ -175,6 +220,30 @@ export function RewardCard({
           <p className="text-sm text-medium-gray mb-3 line-clamp-2">
             {reward.description}
           </p>
+        )}
+
+        {/* Claim timestamp for My Rewards tab */}
+        {activeTab === 'inventory' && claimTimestamp && (
+          <div className="flex items-center gap-1 mb-3">
+            <Clock className="h-3 w-3 text-medium-gray" />
+            <span className="text-xs text-medium-gray">
+              Claimed {typeof claimTimestamp.toDate === 'function'
+                ? claimTimestamp.toDate().toLocaleDateString()
+                : new Date(claimTimestamp).toLocaleDateString()}
+            </span>
+          </div>
+        )}
+
+        {/* Claim timestamp for Family Claims tab */}
+        {activeTab === 'claimed' && claimTimestamp && (
+          <div className="flex items-center gap-1 mb-3">
+            <Clock className="h-3 w-3 text-medium-gray" />
+            <span className="text-xs text-medium-gray">
+              Requested {typeof claimTimestamp.toDate === 'function'
+                ? claimTimestamp.toDate().toLocaleDateString()
+                : new Date(claimTimestamp).toLocaleDateString()}
+            </span>
+          </div>
         )}
 
         {/* Stock indicator */}
@@ -196,7 +265,8 @@ export function RewardCard({
             <span className="text-sm text-medium-gray">points</span>
           </div>
 
-          {!isParent && (
+          {/* Child claim actions */}
+          {!isParent && activeTab !== 'claimed' && (
             <div className="relative">
               {showSuccess && (
                 <motion.div
@@ -218,27 +288,89 @@ export function RewardCard({
               ) : (
                 <Button
                   size="sm"
-                  variant={canAfford ? 'primary' : 'outline'}
+                  variant={canAfford && reward.isActive ? 'primary' : 'outline'}
                   onClick={handleClaim}
-                  disabled={!canAfford || isOutOfStock || isLoading}
+                  disabled={!canAfford || isOutOfStock || isLoading || !reward.isActive}
                   isLoading={isLoading}
                   leftIcon={
                     isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                      !canAfford ? <Lock className="h-4 w-4" /> :
-                        <ShoppingCart className="h-4 w-4" />
+                      !reward.isActive ? <Pause className="h-4 w-4" /> :
+                        !canAfford ? <Lock className="h-4 w-4" /> :
+                          <ShoppingCart className="h-4 w-4" />
                   }
                 >
                   {isLoading ? 'Claiming...' :
-                    !canAfford ? 'Locked' :
-                      isOutOfStock ? 'Out of Stock' : 'Claim'}
+                    !reward.isActive ? 'Paused' :
+                      !canAfford ? 'Locked' :
+                        isOutOfStock ? 'Out of Stock' : 'Claim'}
                 </Button>
               )}
+            </div>
+          )}
+
+          {/* Parent approval actions for Family Claims tab */}
+          {isParent && activeTab === 'claimed' && approvalStatus === 'pending' && claimUserId && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="success"
+                onClick={async () => {
+                  setIsApproving(true);
+                  try {
+                    console.log('Approve button clicked for reward:', reward.id, 'user:', claimUserId);
+                    await onApprove?.(reward.id, claimUserId);
+                  } catch (error) {
+                    console.error('Error in approve button handler:', error);
+                  } finally {
+                    setIsApproving(false);
+                  }
+                }}
+                disabled={isApproving || isRejecting}
+                isLoading={isApproving}
+              >
+                {isApproving ? 'Approving...' : 'Approve'}
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={async () => {
+                  setIsRejecting(true);
+                  try {
+                    console.log('Reject button clicked for reward:', reward.id, 'user:', claimUserId);
+                    await onReject?.(reward.id, claimUserId);
+                  } catch (error) {
+                    console.error('Error in reject button handler:', error);
+                  } finally {
+                    setIsRejecting(false);
+                  }
+                }}
+                disabled={isApproving || isRejecting}
+                isLoading={isRejecting}
+              >
+                {isRejecting ? 'Rejecting...' : 'Reject'}
+              </Button>
+            </div>
+          )}
+
+          {/* Status badge for inventory tab */}
+          {activeTab === 'inventory' && approvalStatus && (
+            <div className="mb-3">
+              <Badge
+                variant={
+                  approvalStatus === 'approved' ? 'success' :
+                    approvalStatus === 'rejected' ? 'danger' : 'warning'
+                }
+                size="sm"
+              >
+                {approvalStatus === 'approved' ? '✅ Approved' :
+                  approvalStatus === 'rejected' ? '❌ Rejected' : '⏳ Pending Approval'}
+              </Badge>
             </div>
           )}
         </div>
 
         {/* Show claimed date if claimed */}
-        {isClaimed && (
+        {isClaimed && activeTab === 'claimed' && (
           <div className="mt-2 text-center">
             <p className="text-xs text-medium-gray">
               Claimed {new Date().toLocaleDateString()}

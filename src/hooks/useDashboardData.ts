@@ -1,10 +1,10 @@
 // src/hooks/useDashboardData.ts
 import { useState, useEffect } from 'react';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  query,
+  where,
+  orderBy,
   limit,
   onSnapshot,
   Timestamp,
@@ -73,7 +73,7 @@ export function useDashboardData() {
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const householdId = userProfile?.householdIds?.[0];
   const activeProfileId = userProfile?.activeProfile === 'parent' ? currentUser?.uid : userProfile?.activeProfile;
-  
+
 
   useEffect(() => {
     if (!householdId || !userProfile || !currentUser) {
@@ -87,22 +87,22 @@ export function useDashboardData() {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Load today's tasks
       await loadTodaysTasks();
-      
+
       // Load user stats
       await loadUserStats();
-      
+
       // Load recent tasks
       await loadRecentTasks();
-      
+
       // Load family leaderboard
       await loadFamilyLeaderboard();
 
       // Load recent activities (tasks + rewards)
       await loadRecentActivities();
-      
+
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -116,6 +116,8 @@ export function useDashboardData() {
     try {
       console.log('Loading recent activities for household:', householdId);
       const activities: ActivityItem[] = [];
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       // Get all household members for name lookup
       const membersQuery = query(
@@ -124,7 +126,7 @@ export function useDashboardData() {
       );
       const membersSnapshot = await getDocs(membersQuery);
       const membersMap = new Map();
-      
+
       membersSnapshot.docs.forEach(doc => {
         const data = doc.data();
         membersMap.set(doc.id, {
@@ -133,21 +135,22 @@ export function useDashboardData() {
         });
       });
 
-      // Get recent completed tasks
+      // Get recent completed tasks (last 7 days)
       const tasksQuery = query(
         collection(db, COLLECTIONS.TASKS),
         where('householdId', '==', householdId),
         where('status', '==', 'done'),
         where('completedAt', '!=', null),
+        where('completedAt', '>=', Timestamp.fromDate(sevenDaysAgo)),
         orderBy('completedAt', 'desc'),
-        limit(5)
+        limit(10)
       );
 
       const tasksSnapshot = await getDocs(tasksQuery);
       tasksSnapshot.docs.forEach(doc => {
         const task = doc.data();
         const member = membersMap.get(task.completedBy);
-        
+
         if (member && task.completedAt) {
           activities.push({
             id: doc.id,
@@ -162,31 +165,86 @@ export function useDashboardData() {
         }
       });
 
-      // Get recent claimed rewards
+      // Get recent claimed rewards (last 7 days)
       try {
-        const recentRewardClaims = await rewardsService.getRecentRewardClaims(householdId, 5);
-        
+        const recentRewardClaims = await rewardsService.getRecentRewardClaims(householdId, 10);
+
         recentRewardClaims.forEach(claimedReward => {
-          activities.push({
-            id: `reward-${claimedReward.id}-${claimedReward.claimInfo.userId}`,
-            type: 'reward_claimed',
-            memberName: claimedReward.claimInfo.userName,
-            memberAvatar: claimedReward.claimInfo.userAvatar,
-            title: `claimed "${claimedReward.title}"`,
-            points: -claimedReward.cost, // Negative for spending
-            timestamp: claimedReward.claimInfo.claimedAt,
-            icon: '🎁'
-          });
+          const claimDate = typeof claimedReward.claimInfo.claimedAt.toDate === 'function'
+            ? claimedReward.claimInfo.claimedAt.toDate()
+            : new Date(claimedReward.claimInfo.claimedAt);
+
+          if (claimDate >= sevenDaysAgo) {
+            activities.push({
+              id: `reward-${claimedReward.id}-${claimedReward.claimInfo.userId}`,
+              type: 'reward_claimed',
+              memberName: claimedReward.claimInfo.userName,
+              memberAvatar: claimedReward.claimInfo.userAvatar,
+              title: `claimed "${claimedReward.title}"`,
+              points: -claimedReward.cost,
+              timestamp: claimDate,
+              icon: '🎁'
+            });
+          }
         });
       } catch (error) {
         console.error('Error loading reward claims for activity:', error);
       }
 
-      // Sort all activities by timestamp (most recent first)
+      // Check for streak milestones in user documents
+      membersSnapshot.docs.forEach(doc => {
+        const userData = doc.data();
+        const member = membersMap.get(doc.id);
+
+        if (member && userData.lastActiveDate) {
+          const lastActiveDate = userData.lastActiveDate.toDate();
+          const currentStreak = userData.currentStreak || 0;
+
+          // Check if streak milestone was reached in last 7 days
+          if (lastActiveDate >= sevenDaysAgo && [3, 7, 14, 30].includes(currentStreak)) {
+            activities.push({
+              id: `streak-${doc.id}-${currentStreak}`,
+              type: 'streak_milestone',
+              memberName: member.name,
+              memberAvatar: member.avatar,
+              title: `reached ${currentStreak}-day streak!`,
+              timestamp: lastActiveDate,
+              icon: '🔥'
+            });
+          }
+        }
+      });
+
+      // Check for recently earned badges (mock for now - would need badge tracking)
+      membersSnapshot.docs.forEach(doc => {
+        const userData = doc.data();
+        const member = membersMap.get(doc.id);
+
+        if (member && userData.badges && userData.badges.length > 0) {
+          // For demo purposes, add a badge activity if user has badges
+          // In real implementation, you'd track badge earn timestamps
+          const recentBadgeDate = new Date();
+          recentBadgeDate.setDate(recentBadgeDate.getDate() - Math.floor(Math.random() * 7));
+
+          if (recentBadgeDate >= sevenDaysAgo && Math.random() > 0.7) { // 30% chance for demo
+            activities.push({
+              id: `badge-${doc.id}-${Date.now()}`,
+              type: 'badge_earned',
+              memberName: member.name,
+              memberAvatar: member.avatar,
+              title: `earned a new badge!`,
+              timestamp: recentBadgeDate,
+              icon: '🏆'
+            });
+          }
+        }
+      });
+
+      // Sort all activities by timestamp (most recent first) and limit to 5
       activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-      console.log('Final activities with rewards:', activities);
-      setRecentActivities(activities.slice(0, 10)); // Keep top 10
+      console.log('Final activities with all types:', activities);
+      setRecentActivities(activities.slice(0, 5)); // Limit to 5 most recent
     } catch (error) {
       console.error('Error loading recent activities:', error);
     }
@@ -210,9 +268,9 @@ export function useDashboardData() {
 
     const snapshot = await getDocs(q);
     const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-    
+
     const completed = tasks.filter(t => t.status === 'done').length;
-    
+
     // Convert tasks to quests format
     const quests: Quest[] = tasks.map(task => ({
       id: task.id,
@@ -221,9 +279,9 @@ export function useDashboardData() {
       icon: getCategoryIcon(task.category),
       completed: task.status === 'done',
       category: task.category || 'other',
-      dueTime: task.dueDate.toDate().toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit' 
+      dueTime: task.dueDate.toDate().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
       }),
     }));
 
@@ -300,7 +358,7 @@ export function useDashboardData() {
 
       const snapshot = await getDocs(q);
       console.log('Found', snapshot.docs.length, 'household members');
-      
+
       snapshot.docs.forEach(doc => {
         const userData = doc.data();
         console.log('Member data:', { id: doc.id, name: userData.displayName, points: userData.points });
