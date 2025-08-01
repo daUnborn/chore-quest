@@ -165,7 +165,7 @@ export function useRewards() {
         if (result.newUserPoints !== undefined) {
           setUserPoints(result.newUserPoints);
           
-          // Also update the user profile in context
+          // Also update the user profile in context for immediate UI update
           if (userProfile.activeProfile === 'parent') {
             await updateUserProfile({ points: result.newUserPoints });
           } else {
@@ -179,9 +179,12 @@ export function useRewards() {
               await updateUserProfile({ childProfiles: updatedChildProfiles });
             }
           }
+
+          // Refresh user profile to ensure UI consistency
+          await refreshUserProfile();
         }
 
-        // Refresh claimed rewards
+        // Refresh claimed rewards immediately
         if (householdId) {
           const updatedUserClaimed = await rewardsService.getUserClaimedRewards(householdId, activeUserId);
           setUserClaimedRewards(updatedUserClaimed);
@@ -211,6 +214,18 @@ export function useRewards() {
       console.log('Reward updated successfully');
     } catch (error) {
       console.error('Error updating reward:', error);
+      throw error;
+    }
+  };
+
+  // Pause/Resume reward
+  const pauseReward = async (rewardId: string): Promise<void> => {
+    try {
+      console.log('Pausing/resuming reward:', rewardId);
+      await rewardsService.pauseReward(rewardId);
+      console.log('Reward pause/resume successful');
+    } catch (error) {
+      console.error('Error pausing/resuming reward:', error);
       throw error;
     }
   };
@@ -263,12 +278,13 @@ export function useRewards() {
   return {
     rewards,
     userClaimedRewards,
-    allClaimedRewards, // For parents to see all claims
+    allClaimedRewards,
     loading,
     error,
     createReward,
     claimReward,
     updateReward,
+    pauseReward, // Add this
     deleteReward,
     userPoints,
     hasClaimedReward,

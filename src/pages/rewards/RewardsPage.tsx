@@ -15,18 +15,20 @@ export function RewardsPage() {
   const {
     rewards,
     userClaimedRewards,
+    allClaimedRewards,
     loading,
     error,
     createReward,
     claimReward,
+    pauseReward, // Add this
     deleteReward,
-    userPoints, // Use this instead of getUserPoints()
+    userPoints,
     hasClaimedReward,
     isRewardRedeemed,
   } = useRewards();
   
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'shop' | 'inventory'>('shop');
+  const [activeTab, setActiveTab] = useState<'shop' | 'inventory' | 'claimed'>('shop');
   const [claimingReward, setClaimingReward] = useState<string | null>(null);
   
   const isParent = userProfile?.role === 'parent' || userProfile?.activeProfile === 'parent';
@@ -62,22 +64,50 @@ export function RewardsPage() {
   };
 
   const handleDeleteReward = async (rewardId: string) => {
+    if (window.confirm('Are you sure you want to permanently delete this reward? This action cannot be undone.')) {
+      try {
+        await deleteReward(rewardId);
+      } catch (error) {
+        console.error('Failed to delete reward:', error);
+        // TODO: Show error toast
+      }
+    }
+  };
+
+  const handlePauseReward = async (rewardId: string) => {
     try {
-      await deleteReward(rewardId);
+      await pauseReward(rewardId);
     } catch (error) {
-      console.error('Failed to delete reward:', error);
+      console.error('Failed to pause reward:', error);
       // TODO: Show error toast
     }
   };
 
-  // Filter rewards for shop tab
-  const shopRewards = rewards.filter(reward => reward.isActive);
 
-  // Get user's claimed rewards with claim info
-  const myRewards = userClaimedRewards.map(reward => ({
-    ...reward,
-    isClaimed: hasClaimedReward(reward.id),
-    isRedeemed: isRewardRedeemed(reward.id),
+  // Shop tab - ALL active rewards (marketplace concept)
+  // Shop tab - ALL active rewards for parents, only active rewards for children
+  const shopRewards = isParent 
+    ? rewards.filter(reward => reward.isActive)
+    : rewards.filter(reward => reward.isActive); // Children only see active rewards
+
+  // My Rewards tab - only actual claimed rewards by current user
+  const myRewards = isParent 
+    ? [] // Parents don't have personal rewards
+    : allClaimedRewards
+        .filter(claimedReward => claimedReward.claimInfo.userId === (userProfile?.activeProfile === 'parent' ? currentUser?.uid : userProfile?.activeProfile))
+        .map(claimedReward => ({
+          ...claimedReward,
+          isClaimed: true,
+          isRedeemed: !!claimedReward.claimInfo.redeemedAt,
+        }));
+
+  // Claimed Rewards tab - all family claims with claimer info
+  const claimedRewards = allClaimedRewards.map(claimedReward => ({
+    ...claimedReward,
+    isClaimed: true,
+    isRedeemed: !!claimedReward.claimInfo.redeemedAt,
+    claimerName: claimedReward.claimInfo.userName,
+    claimerAvatar: claimedReward.claimInfo.userAvatar,
   }));
 
   if (loading) {
@@ -143,35 +173,50 @@ export function RewardsPage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 bg-white rounded-lg p-1">
+        <div className="flex gap-1 bg-white rounded-lg p-1">
           <Button
             variant={activeTab === 'shop' ? 'primary' : 'ghost'}
             onClick={() => setActiveTab('shop')}
             className="flex-1"
             leftIcon={<ShoppingBag className="h-4 w-4" />}
+            size="sm"
           >
             Shop
           </Button>
-          <Button
-            variant={activeTab === 'inventory' ? 'primary' : 'ghost'}
-            onClick={() => setActiveTab('inventory')}
-            className="flex-1"
-            leftIcon={<Gift className="h-4 w-4" />}
-          >
-            My Rewards ({myRewards.length})
-          </Button>
+          {!isParent && (
+            <Button
+              variant={activeTab === 'inventory' ? 'primary' : 'ghost'}
+              onClick={() => setActiveTab('inventory')}
+              className="flex-1"
+              leftIcon={<Gift className="h-4 w-4" />}
+              size="sm"
+            >
+              My Rewards ({myRewards.length})
+            </Button>
+          )}
+          {isParent && (
+            <Button
+              variant={activeTab === 'claimed' ? 'primary' : 'ghost'}
+              onClick={() => setActiveTab('claimed')}
+              className="flex-1"
+              leftIcon={<Trophy className="h-4 w-4" />}
+              size="sm"
+            >
+              Family Claims ({claimedRewards.length})
+            </Button>
+          )}
         </div>
 
         {/* Content */}
-        {activeTab === 'shop' ? (
+        {activeTab === 'shop' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {shopRewards.length === 0 ? (
               <div className="col-span-full">
                 <EmptyState
                   icon={<Gift className="h-16 w-16" />}
-                  title="No rewards available"
+                  title={isParent ? "No rewards in shop" : "Shop is empty"}
                   description={
-                    isParent ? "Create rewards for your kids to claim" : "Check back later for new rewards!"
+                    isParent ? "Create rewards for your kids to purchase" : "Check back later for new rewards in the marketplace!"
                   }
                   action={
                     isParent ? {
@@ -192,24 +237,29 @@ export function RewardsPage() {
                   <RewardCard
                     reward={reward}
                     userPoints={userPoints}
-                    onClaim={handleClaimReward}
-                    isClaimed={hasClaimedReward(reward.id)}
-                    isRedeemed={isRewardRedeemed(reward.id)}
+                    onClaim={isParent ? () => {} : handleClaimReward}
+                    isClaimed={false}
+                    isRedeemed={false}
+                    isParent={isParent} // Add this
+                    onPause={handlePauseReward} // Add this
+                    onDelete={handleDeleteReward} // Add this
                   />
                 </motion.div>
               ))
             )}
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'inventory' && !isParent && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {myRewards.length === 0 ? (
               <div className="col-span-full">
                 <EmptyState
                   icon={<Gift className="h-16 w-16" />}
-                  title="No rewards claimed yet"
-                  description="Visit the shop to claim your first reward!"
+                  title="No rewards purchased yet"
+                  description="Visit the shop to purchase your first reward!"
                   action={{
-                    label: "Go to Shop",
+                    label: "Browse Shop",
                     onClick: () => setActiveTab('shop')
                   }}
                 />
@@ -217,18 +267,67 @@ export function RewardsPage() {
             ) : (
               myRewards.map((reward, index) => (
                 <motion.div
-                  key={reward.id}
+                  key={`my-${reward.id}-${index}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
                   <RewardCard
-                    reward={reward}
-                    userPoints={userPoints}
-                    onClaim={() => {}} // Already claimed, no action needed
-                    isClaimed={true}
-                    isRedeemed={reward.isRedeemed}
-                  />
+                      reward={reward}
+                      userPoints={userPoints}
+                      onClaim={() => {}}
+                      isClaimed={true}
+                      isRedeemed={reward.isRedeemed}
+                      isParent={isParent} // Add this
+                      onPause={handlePauseReward} // Add this
+                      onDelete={handleDeleteReward} // Add this
+                    />
+                </motion.div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'claimed' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {claimedRewards.length === 0 ? (
+              <div className="col-span-full">
+                <EmptyState
+                  icon={<Trophy className="h-16 w-16" />}
+                  title="No rewards claimed yet"
+                  description="Family members will see their claimed rewards here"
+                />
+              </div>
+            ) : (
+              claimedRewards.map((reward, index) => (
+                <motion.div
+                  key={`claimed-${reward.id}-${reward.claimerName}-${index}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <div className="relative">
+                    <RewardCard
+                      reward={reward}
+                      userPoints={userPoints}
+                      onClaim={() => {}} // No claiming in claimed tab
+                      isClaimed={true}
+                      isRedeemed={reward.isRedeemed}
+                    />
+                    {/* Always show claimer info in claimed tab */}
+                    <div className="absolute top-2 right-2 bg-white/90 rounded-full px-3 py-1 flex items-center gap-2 shadow-sm">
+                      {reward.claimerAvatar && (
+                        <img 
+                          src={reward.claimerAvatar} 
+                          alt={reward.claimerName}
+                          className="w-6 h-6 rounded-full"
+                        />
+                      )}
+                      <span className="text-xs font-medium text-dark-slate">
+                        {reward.claimerName}
+                      </span>
+                    </div>
+                  </div>
                 </motion.div>
               ))
             )}

@@ -1,3 +1,4 @@
+// src/hooks/useDashboardData.ts
 import { useState, useEffect } from 'react';
 import { 
   collection, 
@@ -14,6 +15,7 @@ import { COLLECTIONS } from '@/lib/firebase/collections';
 import { useAuth } from '@/contexts/AuthContext';
 import { Task } from '@/types';
 import { streaksService } from '@/services/streaks.service';
+import { rewardsService } from '@/services/firebase/rewards.firebase.service';
 
 interface DashboardStats {
   tasksToday: number;
@@ -41,9 +43,11 @@ interface Quest {
   completed: boolean;
   category: string;
   dueTime?: string;
-}interface ActivityItem {
+}
+
+interface ActivityItem {
   id: string;
-  type: 'task_completed' | 'badge_earned' | 'streak_milestone';
+  type: 'task_completed' | 'reward_claimed' | 'badge_earned' | 'streak_milestone';
   memberName: string;
   memberAvatar?: string;
   title: string;
@@ -96,7 +100,7 @@ export function useDashboardData() {
       // Load family leaderboard
       await loadFamilyLeaderboard();
 
-      // Load recent activities
+      // Load recent activities (tasks + rewards)
       await loadRecentActivities();
       
     } catch (error) {
@@ -111,18 +115,6 @@ export function useDashboardData() {
 
     try {
       console.log('Loading recent activities for household:', householdId);
-      // Get recent completed tasks
-      const q = query(
-        collection(db, COLLECTIONS.TASKS),
-        where('householdId', '==', householdId),
-        where('status', '==', 'done'),
-        where('completedAt', '!=', null),
-        orderBy('completedAt', 'desc'),
-        limit(10)
-      );
-
-      const snapshot = await getDocs(q);
-      console.log('Found', snapshot.docs.length, 'completed tasks');
       const activities: ActivityItem[] = [];
 
       // Get all household members for name lookup
@@ -141,13 +133,20 @@ export function useDashboardData() {
         });
       });
 
-      console.log('Members map:', membersMap);
+      // Get recent completed tasks
+      const tasksQuery = query(
+        collection(db, COLLECTIONS.TASKS),
+        where('householdId', '==', householdId),
+        where('status', '==', 'done'),
+        where('completedAt', '!=', null),
+        orderBy('completedAt', 'desc'),
+        limit(5)
+      );
 
-      snapshot.docs.forEach(doc => {
+      const tasksSnapshot = await getDocs(tasksQuery);
+      tasksSnapshot.docs.forEach(doc => {
         const task = doc.data();
         const member = membersMap.get(task.completedBy);
-        
-        console.log('Task completed by:', task.completedBy, 'Member found:', member);
         
         if (member && task.completedAt) {
           activities.push({
@@ -163,8 +162,31 @@ export function useDashboardData() {
         }
       });
 
-      console.log('Final activities:', activities);
-      setRecentActivities(activities);
+      // Get recent claimed rewards
+      try {
+        const recentRewardClaims = await rewardsService.getRecentRewardClaims(householdId, 5);
+        
+        recentRewardClaims.forEach(claimedReward => {
+          activities.push({
+            id: `reward-${claimedReward.id}-${claimedReward.claimInfo.userId}`,
+            type: 'reward_claimed',
+            memberName: claimedReward.claimInfo.userName,
+            memberAvatar: claimedReward.claimInfo.userAvatar,
+            title: `claimed "${claimedReward.title}"`,
+            points: -claimedReward.cost, // Negative for spending
+            timestamp: claimedReward.claimInfo.claimedAt,
+            icon: '🎁'
+          });
+        });
+      } catch (error) {
+        console.error('Error loading reward claims for activity:', error);
+      }
+
+      // Sort all activities by timestamp (most recent first)
+      activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+      console.log('Final activities with rewards:', activities);
+      setRecentActivities(activities.slice(0, 10)); // Keep top 10
     } catch (error) {
       console.error('Error loading recent activities:', error);
     }

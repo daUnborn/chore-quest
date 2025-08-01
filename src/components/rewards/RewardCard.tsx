@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, ShoppingCart, Check, Package, Loader2 } from 'lucide-react';
+import { Lock, ShoppingCart, Check, Package, Loader2, MoreVertical, Pause, Play, Trash2 } from 'lucide-react';
 import { Reward } from '@/types';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/Button';
@@ -13,35 +13,42 @@ interface RewardCardProps {
   onClaim: (rewardId: string) => Promise<void>;
   isClaimed?: boolean;
   isRedeemed?: boolean;
+  isParent?: boolean; // Add this
+  onPause?: (rewardId: string) => Promise<void>; // Add this
+  onDelete?: (rewardId: string) => Promise<void>; // Add this
 }
 
-export function RewardCard({ 
-  reward, 
-  userPoints, 
-  onClaim, 
+export function RewardCard({
+  reward,
+  userPoints,
+  onClaim,
   isClaimed = false,
-  isRedeemed = false 
+  isRedeemed = false,
+  //isParent = false,
+  onPause,
+  onDelete
 }: RewardCardProps) {
   const { userProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  
+  const [showMenu, setShowMenu] = useState(false); // Add this
+
   const canAfford = userPoints >= reward.cost;
   const isParent = userProfile?.role === 'parent' || userProfile?.activeProfile === 'parent';
-  
+
   // Calculate remaining stock
   const getRemainingStock = () => {
     if (reward.stock === undefined) return null;
     const claimed = reward.claimedBy.filter(c => !c.redeemedAt).length;
     return reward.stock - claimed;
   };
-  
+
   const remainingStock = getRemainingStock();
   const isOutOfStock = remainingStock !== null && remainingStock <= 0;
 
   const handleClaim = async () => {
     if (!canAfford || isOutOfStock || isClaimed || isLoading) return;
-    
+
     setIsLoading(true);
     try {
       await onClaim(reward.id);
@@ -81,7 +88,7 @@ export function RewardCard({
     >
       {/* Image/Icon Section */}
       <div className={cn(
-        'h-32 flex items-center justify-center text-5xl',
+        'h-32 flex items-center justify-center text-5xl relative',
         getCategoryColor()
       )}>
         {reward.imageUrl?.startsWith('http') ? (
@@ -93,6 +100,52 @@ export function RewardCard({
         ) : (
           <span>{reward.imageUrl || getCategoryIcon()}</span>
         )}
+        
+        {/* Parent Menu */}
+        {isParent && (
+          <div className="absolute top-2 right-2">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1 rounded-full bg-black/20 hover:bg-black/40 text-white transition-colors"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+            
+            {showMenu && (
+              <div className="absolute right-0 top-8 bg-white border border-light-gray rounded-lg shadow-lg py-1 z-10 min-w-[140px]">
+                <button
+                  onClick={() => {
+                    onPause?.(reward.id);
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                >
+                  {reward.isActive ? (
+                    <>
+                      <Pause className="h-4 w-4" />
+                      Pause Reward
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4" />
+                      Resume Reward
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    onDelete?.(reward.id);
+                    setShowMenu(false);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-coral-accent"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Reward
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -102,12 +155,19 @@ export function RewardCard({
           <h3 className="font-semibold text-dark-slate line-clamp-2">
             {reward.title}
           </h3>
-          <Badge 
-            variant={reward.category === 'virtual' ? 'primary' : 'success'} 
-            size="sm"
-          >
-            {reward.category}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant={reward.category === 'virtual' ? 'primary' : 'success'} 
+              size="sm"
+            >
+              {reward.category}
+            </Badge>
+            {!reward.isActive && (
+              <Badge variant="danger" size="sm">
+                Paused
+              </Badge>
+            )}
+          </div>
         </div>
 
         {/* Description */}
@@ -147,9 +207,9 @@ export function RewardCard({
                   <Check className="h-5 w-5 text-white" />
                 </motion.div>
               )}
-              
+
               {isClaimed ? (
-                <Badge 
+                <Badge
                   variant={isRedeemed ? 'default' : 'warning'}
                   className="px-4 py-2"
                 >
@@ -164,13 +224,13 @@ export function RewardCard({
                   isLoading={isLoading}
                   leftIcon={
                     isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> :
-                    !canAfford ? <Lock className="h-4 w-4" /> : 
-                    <ShoppingCart className="h-4 w-4" />
+                      !canAfford ? <Lock className="h-4 w-4" /> :
+                        <ShoppingCart className="h-4 w-4" />
                   }
                 >
                   {isLoading ? 'Claiming...' :
-                   !canAfford ? 'Locked' : 
-                   isOutOfStock ? 'Out of Stock' : 'Claim'}
+                    !canAfford ? 'Locked' :
+                      isOutOfStock ? 'Out of Stock' : 'Claim'}
                 </Button>
               )}
             </div>

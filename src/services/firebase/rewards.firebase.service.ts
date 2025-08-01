@@ -12,7 +12,7 @@ import {
   onSnapshot,
   Unsubscribe,
   deleteDoc,
-  Timestamp,
+  Timestamp, // Add this
   arrayUnion
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -186,7 +186,7 @@ class RewardsService {
         userId: claimData.userId,
         userName: claimData.userName,
         userAvatar: claimData.userAvatar,
-        claimedAt: new Date(),
+        claimedAt: Timestamp.now(),
       };
       
       // Update reward with claim
@@ -247,9 +247,15 @@ class RewardsService {
       });
 
       // Sort by claim date (most recent first)
-      return claimedRewards.sort((a, b) => 
-        b.claimInfo.claimedAt.getTime() - a.claimInfo.claimedAt.getTime()
-      );
+      return claimedRewards.sort((a, b) => {
+        const aTime = a.claimInfo.claimedAt instanceof Date 
+          ? a.claimInfo.claimedAt.getTime()
+          : a.claimInfo.claimedAt.toDate().getTime();
+        const bTime = b.claimInfo.claimedAt instanceof Date 
+          ? b.claimInfo.claimedAt.getTime()
+          : b.claimInfo.claimedAt.toDate().getTime();
+        return bTime - aTime;
+      });
     } catch (error) {
       console.error('Error fetching all claimed rewards:', error);
       throw new Error('Failed to fetch claimed rewards');
@@ -281,18 +287,23 @@ class RewardsService {
     }
   }
 
-  // Get rewards claimed by a specific user
+  // Get rewards claimed by a specific user - shows ALL available rewards with claim status
   async getUserClaimedRewards(householdId: string, userId: string): Promise<Reward[]> {
     try {
       const q = query(
         collection(db, COLLECTIONS.REWARDS),
-        where('householdId', '==', householdId)
+        where('householdId', '==', householdId),
+        where('isActive', '==', true)
       );
 
       const snapshot = await getDocs(q);
-      return snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as Reward))
-        .filter(reward => reward.claimedBy.some(claim => claim.userId === userId));
+      const allRewards = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Reward));
+      
+      // Return all rewards, but mark which ones the user has claimed
+      return allRewards.map(reward => ({
+        ...reward,
+        userHasClaimed: reward.claimedBy.some(claim => claim.userId === userId)
+      }));
     } catch (error) {
       console.error('Error fetching user claimed rewards:', error);
       throw new Error('Failed to fetch claimed rewards');
@@ -335,11 +346,36 @@ class RewardsService {
     }
   }
 
-  // Delete/deactivate reward
+  // Pause/Resume a reward (toggle isActive status)
+  async pauseReward(rewardId: string): Promise<void> {
+    try {
+      const rewardRef = doc(db, COLLECTIONS.REWARDS, rewardId);
+      const rewardDoc = await getDoc(rewardRef);
+      
+      if (!rewardDoc.exists()) {
+        throw new Error('Reward not found');
+      }
+      
+      const currentStatus = rewardDoc.data().isActive;
+      await updateDoc(rewardRef, { 
+        isActive: !currentStatus,
+        pausedAt: !currentStatus ? null : new Date(),
+        resumedAt: currentStatus ? null : new Date()
+      });
+      
+      console.log(`Reward ${currentStatus ? 'paused' : 'resumed'}: ${rewardId}`);
+    } catch (error) {
+      console.error('Error pausing/resuming reward:', error);
+      throw new Error('Failed to pause/resume reward');
+    }
+  }
+
+  // Permanently delete reward
   async deleteReward(rewardId: string): Promise<void> {
     try {
       const rewardRef = doc(db, COLLECTIONS.REWARDS, rewardId);
-      await updateDoc(rewardRef, { isActive: false });
+      await deleteDoc(rewardRef);
+      console.log(`Reward permanently deleted: ${rewardId}`);
     } catch (error) {
       console.error('Error deleting reward:', error);
       throw new Error('Failed to delete reward');
